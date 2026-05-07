@@ -9,11 +9,24 @@ from __future__ import annotations
 
 import os
 from mcp.server.fastmcp import FastMCP
+from mcp.types import Tool as MCPTool
 
 from .retrieval import format_context, recall
 from .store import get_or_create_session
 
-mcp = FastMCP("memagent")
+
+class CompatFastMCP(FastMCP):
+    """FastMCP with outputSchema stripped — Claude Code's client doesn't support it."""
+
+    async def list_tools(self) -> list[MCPTool]:
+        tools = await super().list_tools()
+        return [
+            MCPTool(name=t.name, description=t.description, inputSchema=t.inputSchema)
+            for t in tools
+        ]
+
+
+mcp = CompatFastMCP("memagent")
 
 
 @mcp.tool()
