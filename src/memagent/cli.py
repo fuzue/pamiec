@@ -85,8 +85,10 @@ def _cmd_consolidate_session():
     print(
         f"[memagent] episode {result['episode_id'][:8] if result['episode_id'] else '-'} "
         f"| {len(turns)} turns | {result['nodes_created']} new entities "
-        f"| {result['entities_touched']} entities touched "
-        f"| {result['edges_created']} edges from {session_file.name}",
+        f"| {result['entities_touched']} touched "
+        f"| {result['edges_created']} edges "
+        f"| dropped {result.get('dropped_entities', 0)} entities, "
+        f"{result.get('dropped_edges', 0)} edges (low confidence)",
         file=sys.stderr,
     )
 

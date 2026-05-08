@@ -21,6 +21,7 @@ from .store import (
 
 MERGE_THRESHOLD = 0.82
 RELATED_THRESHOLD = 0.60
+CONFIDENCE_THRESHOLD = 0.7
 
 
 def consolidate_turns(turns: list[Turn], session_file: str = "") -> dict:
@@ -38,8 +39,18 @@ def consolidate_turns(turns: list[Turn], session_file: str = "") -> dict:
     # Tier 2: extract entities + episode summary, chunked if transcript is long
     extracted = _extract_chunked(transcript)
     summary = extracted.get("summary", f"Conversation with {len(turns)} turns")
-    entities = extracted.get("entities", [])
-    raw_edges = extracted.get("edges", [])
+
+    # Filter by confidence — drop low-confidence entities and edges
+    entities = [
+        e for e in extracted.get("entities", [])
+        if float(e.get("confidence", 0.0)) >= CONFIDENCE_THRESHOLD
+    ]
+    raw_edges = [
+        e for e in extracted.get("edges", [])
+        if float(e.get("confidence", 0.0)) >= CONFIDENCE_THRESHOLD
+    ]
+    dropped_entities = len(extracted.get("entities", [])) - len(entities)
+    dropped_edges = len(extracted.get("edges", [])) - len(raw_edges)
 
     # Archive episode
     episode_id = str(uuid.uuid4())
@@ -118,6 +129,8 @@ def consolidate_turns(turns: list[Turn], session_file: str = "") -> dict:
         "nodes_created": nodes_created,
         "edges_created": edges_created,
         "entities_touched": len(touched_node_ids),
+        "dropped_entities": dropped_entities,
+        "dropped_edges": dropped_edges,
     }
 
 
@@ -143,22 +156,26 @@ def _extract_chunked(transcript: str, chunk_size: int = 8000) -> dict:
             if not name:
                 continue
             key = name.lower()
+            conf = float(ent.get("confidence", 0.0))
             if key in entities_by_name:
-                # Merge facts, dedupe
-                existing_facts = set(entities_by_name[key].get("facts", []))
+                existing = entities_by_name[key]
+                existing_facts = set(existing.get("facts", []))
                 for f in ent.get("facts", []):
                     if f not in existing_facts:
-                        entities_by_name[key].setdefault("facts", []).append(f)
+                        existing.setdefault("facts", []).append(f)
                         existing_facts.add(f)
+                # Keep highest confidence seen across chunks
+                existing["confidence"] = max(existing.get("confidence", 0.0), conf)
             else:
                 entities_by_name[key] = {
                     "name": name,
                     "type": ent.get("type", "fact"),
                     "facts": list(ent.get("facts", [])),
+                    "confidence": conf,
                 }
         for e in result.get("edges", []):
             sig = (e.get("from", "").lower(), e.get("to", "").lower(), e.get("type", ""))
-            if sig not in edges_seen and all(sig):
+            if sig not in edges_seen and all(sig[:2]):
                 edges_seen.add(sig)
                 edges.append(e)
 
@@ -170,31 +187,49 @@ def _extract_chunked(transcript: str, chunk_size: int = 8000) -> dict:
 
 
 def _extract(transcript: str) -> dict:
-    """Single Haiku call: returns episode summary + entities + edges."""
-    prompt = f"""Analyze this conversation and extract structured memory.
+    """Single Haiku call: returns episode summary + entities + edges with confidence."""
+    prompt = f"""Analyze this conversation and extract long-term memory.
 
-Rules:
-- Only extract facts explicitly stated. No inferences, no meta-references.
-- Focus on long-term memory: people, projects, companies, tools, decisions, constraints.
-- Ignore ephemeral actions (running commands, reading files, tool outputs).
+WHAT TO EXTRACT (real entities that exist in the world):
+- Specific named people (Alice, Bob)
+- Named projects, products, codebases (ProjectX, projectx-app, CoreLib.jl)
+- Companies and institutions (Acme, CentralLab)
+- Published works (specific papers by title or DOI)
+- Named grants or programs (EU-Grant)
+- Concrete tools or technologies if discussed as an entity (PostgreSQL, React)
+
+WHAT NOT TO EXTRACT:
+- Concepts being discussed or designed ("memory gap", "consolidation flow", "design flaw")
+- Generic technical topics ("graph visualization", "knowledge graph implementation")
+- Problems being solved or critiques ("hallucinated edges", "noisy nodes")
+- Architecture decisions or approaches ("three-tier architecture", "cron strategy")
+- Anything you would describe with a definite article like "the X" — those are usually concepts, not entities
+
+A good test: if removing this entity doesn't lose information about a real-world thing that exists outside this conversation, don't extract it.
+
+Each entity and edge MUST include a confidence score from 0.0 to 1.0:
+- 0.9+ : explicitly named multiple times with specific facts
+- 0.7-0.9: named once with clear factual context
+- 0.5-0.7: mentioned but ambiguous or could be a concept
+- below 0.5: skip it
 
 Conversation:
 {transcript[:8000]}
 
 Return ONLY valid JSON:
 {{
-  "summary": "1-2 sentence description of what was discussed in this episode",
+  "summary": "1-2 sentence description of what was discussed",
   "entities": [
-    {{"name": "Alice", "type": "person", "facts": ["founder of Acme", "based in Berlin"]}},
-    {{"name": "ProjectX", "type": "project", "facts": ["AI reasoning partner for wet labs"]}}
+    {{"name": "Alice", "type": "person", "facts": ["founder of Acme"], "confidence": 0.95}},
+    {{"name": "ProjectX", "type": "project", "facts": ["AI reasoning partner for wet labs"], "confidence": 0.9}}
   ],
   "edges": [
-    {{"from": "Alice", "to": "Acme", "type": "FOUNDED"}},
-    {{"from": "Acme", "to": "ProjectX", "type": "OWNS"}}
+    {{"from": "Alice", "to": "Acme", "type": "FOUNDED", "confidence": 0.95}}
   ]
 }}
 
-Use snake_case for entity types and SCREAMING_SNAKE for edge types. Common entity types: person, project, company, tool, decision, constraint, grant. Common edge types: FOUNDED, OWNS, WORKS_ON, COLLABORATES_WITH, MEMBER_OF, PART_OF, BLOCKS, FUNDS. You may invent new types when they describe the relationship more precisely than any of these."""
+Entity types: person, project, company, tool, grant, paper (snake_case, lowercase).
+Edge types: SCREAMING_SNAKE_CASE. Common: FOUNDED, OWNS, WORKS_ON, COLLABORATES_WITH, MEMBER_OF, PART_OF, BLOCKS, FUNDS. Invent new types when they're more precise."""
 
     try:
         result = subprocess.run(
