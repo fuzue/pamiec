@@ -431,6 +431,10 @@ footer .meta code { background: var(--surface); padding: 2px 6px; border-radius:
   .compare-cell.divider { border-left: 0; border-top: 1px solid var(--border); }
   footer { grid-template-columns: 1fr; padding: 40px 32px; }
 }
+@media (max-width: 768px) {
+  nav .brand .by { display: none; }
+  nav .links a:not(.gh) { display: none; }
+}
 @media (max-width: 600px) {
   nav { padding: 14px 20px; }
   nav .links { gap: 18px; font-size: 13px; }
@@ -456,7 +460,7 @@ footer .meta code { background: var(--surface); padding: 2px 6px; border-radius:
     <a href="#problem">why</a>
     <a href="#architecture">architecture</a>
     <a href="#quickstart">install</a>
-    <a href="https://github.com/fuzue/pamiec" target="_blank" rel="noopener">github →</a>
+    <a class="gh" href="https://github.com/fuzue/pamiec" target="_blank" rel="noopener">github →</a>
   </div>
 </nav>
 
