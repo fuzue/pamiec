@@ -5,6 +5,8 @@ Commands:
   memagent remember <text>       explicitly store a fact mid-session
   memagent recall <query>        test retrieval from the command line
   memagent graph                 export knowledge graph as HTML and open in browser
+  memagent episodes [<id>]       list episodes or show one in detail
+  memagent compact               merge redundant facts in oversized entity descriptions
   memagent status                show graph stats and last consolidation time
   memagent init                  create DB and download embedding model
 """
@@ -34,6 +36,8 @@ def main():
             _cmd_episode_detail(args[1])
         else:
             _cmd_episodes_list()
+    elif cmd == "compact":
+        _cmd_compact()
     elif cmd == "remember":
         text = " ".join(args[1:])
         if not text:
@@ -186,6 +190,35 @@ def _cmd_episode_detail(episode_id_prefix: str):
         role = "User " if t["role"] == "user" else "Claude"
         preview = t["text"][:200].replace("\n", " ")
         print(f"  [{ts}] {role}: {preview}")
+
+
+def _cmd_compact():
+    """Compact every entity node whose craw exceeds the threshold."""
+    from .consolidation import COMPACT_THRESHOLD_LINES, _compact_craw
+    from .db import init_db
+    from .embedder import embed_one, to_bytes
+    from .store import get_all_topic_nodes, update_topic_node
+
+    init_db()
+    nodes = get_all_topic_nodes()
+    compacted = 0
+
+    for node in nodes:
+        line_count = node.craw.count("\n") + 1
+        if line_count < COMPACT_THRESHOLD_LINES:
+            continue
+        name = node.csum.split(":")[0].strip()
+        before = line_count
+        new_craw = _compact_craw(name, node.craw)
+        after = new_craw.count("\n")
+        if new_craw != node.craw:
+            update_topic_node(
+                node.id, node.csum, new_craw, to_bytes(embed_one(node.csum))
+            )
+            compacted += 1
+            print(f"  {name}: {before} → {after} lines", file=sys.stderr)
+
+    print(f"Compacted {compacted} entities.", file=sys.stderr)
 
 
 def _cmd_remember(text: str):

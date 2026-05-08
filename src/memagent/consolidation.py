@@ -22,6 +22,8 @@ from .store import (
 MERGE_THRESHOLD = 0.82
 RELATED_THRESHOLD = 0.60
 CONFIDENCE_THRESHOLD = 0.7
+FACT_DEDUPE_SIM = 0.90        # facts with cosine similarity above this are duplicates
+COMPACT_THRESHOLD_LINES = 25  # craw line count that triggers compaction
 
 
 def consolidate_turns(turns: list[Turn], session_file: str = "") -> dict:
@@ -93,7 +95,14 @@ def consolidate_turns(turns: list[Turn], session_file: str = "") -> dict:
 
         matched = _find_matching_node(name, new_vec, existing)
         if matched:
-            merged_craw = matched.craw + "\n" + "\n".join(f"- {f}" for f in facts)
+            new_facts = _dedupe_facts(facts, matched.craw)
+            if new_facts:
+                merged_craw = matched.craw + "\n" + "\n".join(f"- {f}" for f in new_facts)
+                # Compact if too many lines
+                if merged_craw.count("\n") + 1 >= COMPACT_THRESHOLD_LINES:
+                    merged_craw = _compact_craw(name, merged_craw)
+            else:
+                merged_craw = matched.craw  # nothing new
             merged_embedding = to_bytes(embed_one(matched.csum))
             update_topic_node(matched.id, matched.csum, merged_craw, merged_embedding)
             touched_node_ids.add(matched.id)
@@ -244,6 +253,78 @@ Edge types: SCREAMING_SNAKE_CASE. Common: FOUNDED, OWNS, WORKS_ON, COLLABORATES_
         return json.loads(raw)
     except Exception:
         return {}
+
+
+def _dedupe_facts(new_facts: list[str], existing_craw: str) -> list[str]:
+    """Filter new_facts: drop any that exactly or semantically match an existing fact.
+
+    Embedding similarity above FACT_DEDUPE_SIM is treated as a duplicate.
+    """
+    existing_facts = [
+        line.lstrip("- ").strip()
+        for line in existing_craw.splitlines()
+        if line.startswith("- ")
+    ]
+    if not existing_facts:
+        return [f for f in new_facts if f.strip()]
+
+    existing_lower = {f.lower() for f in existing_facts}
+    existing_vecs = [embed_one(f) for f in existing_facts]
+
+    kept = []
+    for fact in new_facts:
+        f = fact.strip()
+        if not f or f.lower() in existing_lower:
+            continue
+        v = embed_one(f)
+        if any(cosine_similarity(v, ev) >= FACT_DEDUPE_SIM for ev in existing_vecs):
+            continue
+        kept.append(f)
+        existing_facts.append(f)
+        existing_lower.add(f.lower())
+        existing_vecs.append(v)
+    return kept
+
+
+def _compact_craw(name: str, craw: str) -> str:
+    """Use Haiku to aggressively merge a long craw into a clean entity description."""
+    prompt = f"""Rewrite this entity description as a clean, non-redundant set of facts.
+
+The current description has accumulated facts across many sessions, with overlap.
+Be aggressive about consolidation:
+- Merge facts that describe the same thing in different words (keep the most informative version)
+- Drop generic restatements ('memory system for X' when 'dogfood prototype of X' is already there)
+- Drop session-narrative noise ('design flaw identified', 'recently fixed', 'needs dynamic types') — these belong in episodes, not in the entity's stable description
+- Keep concrete facts: identity, status, components, dependencies, risks
+- Reorder logically: identity → purpose → key components → status → risks
+- Aim for half the original length when possible
+
+Format:
+- Start with '# {name}'
+- Bullet points only ('- fact')
+- No commentary, no explanations, return only the cleaned description
+
+Entity: {name}
+
+Current description:
+{craw}"""
+
+    try:
+        result = subprocess.run(
+            ["claude", "--model", "claude-haiku-4-5-20251001", "-p", prompt],
+            capture_output=True, text=True, timeout=30,
+        )
+        out = result.stdout.strip()
+        if out.startswith("```"):
+            out = out.split("```")[1]
+            if out.startswith("markdown") or out.startswith("md"):
+                out = out.split("\n", 1)[1]
+        # Sanity check: must still start with the entity header
+        if out.startswith(f"# {name}") or out.startswith(f"#{name}"):
+            return out
+    except Exception:
+        pass
+    return craw  # fall back to original if anything goes wrong
 
 
 def _find_matching_node(name: str, new_vec, existing: list[TopicNode]) -> Optional[TopicNode]:
