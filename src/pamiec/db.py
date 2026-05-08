@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-DB_PATH = Path.home() / ".memagent" / "memory.db"
+DB_PATH = Path.home() / ".pamiec" / "memory.db"
 
 
 def get_conn() -> sqlite3.Connection:

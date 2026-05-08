@@ -1,6 +1,6 @@
-# memagent — Architecture
+# pamiec — Architecture
 
-memagent is a hierarchical graph memory system for Claude Code sessions. It is
+pamiec is a hierarchical graph memory system for Claude Code sessions. It is
 inspired by [GAM (Graph Attention Memory, arxiv 2604.12285)](https://arxiv.org/abs/2604.12285),
 adapted for cross-session entity-level memory rather than within-session episodic
 memory.
@@ -57,8 +57,8 @@ Claude Code session JSONL.
 | `embedding` | 384-dim float32 vector (BAAI/bge-small-en-v1.5) |
 | `captured_at` | unix epoch when captured |
 
-**Lifecycle:** populated by `memagent capture` (cron every 2 min). Drained by
-`memagent consolidate-session` after promotion. No LLM call ever touches Tier 1.
+**Lifecycle:** populated by `pamiec capture` (cron every 2 min). Drained by
+`pamiec consolidate-session` after promotion. No LLM call ever touches Tier 1.
 
 **Why a separate table:** the live buffer has a different lifecycle (deleted
 after promotion) than archived turns. Keeping them separate avoids ambiguity.
@@ -269,7 +269,7 @@ The model is loaded lazily on first call and cached as a module-level singleton
 ## Visualization
 
 `graph_export.export_html(out_path)` writes a self-contained HTML file with
-inlined D3.js (cached at `~/.memagent/d3.v7.min.js`).
+inlined D3.js (cached at `~/.pamiec/d3.v7.min.js`).
 
 Colors are deterministic:
 
@@ -295,7 +295,7 @@ file:// restrictions on inline scripts).
 ## Module layout
 
 ```
-src/memagent/
+src/pamiec/
 ├── db.py             SQLite schema + connection helper
 ├── models.py         Dataclasses (Event, TopicNode, Session)
 ├── store.py          Storage layer for all three tiers
@@ -328,7 +328,7 @@ src/memagent/
 
 ## Comparison with GAM
 
-| Aspect | GAM | memagent |
+| Aspect | GAM | pamiec |
 |--------|-----|----------|
 | Tier 1 EPG | Real-time per-turn append, temporal edges between turns | Real-time per-turn append in `epg_turns`, no temporal edges |
 | Tier 2 Archive | Frozen `G_event` snapshots, cross-linked from topic nodes | `episodes` + `episode_turns`, with `entity_episode_links` |
@@ -337,13 +337,13 @@ src/memagent/
 | Retrieval | TAN anchor → cross-encoder rerank with role/time/conf factors | Multi-tier (TAN + Archive + Live), recency-weighted, no rerank |
 | Optimisation target | Long-conversation episodic memory | Cross-session entity-level memory |
 
-memagent simplifies GAM's mechanics in two places (boundary detection without
+pamiec simplifies GAM's mechanics in two places (boundary detection without
 LLM, retrieval without cross-encoder) and adds one capability (a third
 queryable layer in Tier 1 — the live buffer is searchable directly, not just
 via Tier 2/3).
 
 The biggest deliberate divergence is the unit of memory. GAM optimises for
-"what happened in this long conversation". memagent optimises for "what do I
+"what happened in this long conversation". pamiec optimises for "what do I
 know about Alice / Acme / ProjectX across all sessions". The architectural
 similarity is real but the use case is different.
 
@@ -352,7 +352,7 @@ similarity is real but the use case is different.
 ## File locations
 
 ```
-~/.memagent/
+~/.pamiec/
 ├── memory.db          SQLite — all three tiers
 ├── checkpoint.json    {"captured": {session_path: last_iso_ts}}
 ├── d3.v7.min.js       Cached D3 for offline graph rendering
@@ -365,8 +365,8 @@ similarity is real but the use case is different.
 ## Operating crons
 
 ```
-*/2  * * * * memagent capture              # Tier 1 ingestion
-*/30 * * * * memagent consolidate-session  # Tier 1 → 2 → 3 promotion
+*/2  * * * * pamiec capture              # Tier 1 ingestion
+*/30 * * * * pamiec consolidate-session  # Tier 1 → 2 → 3 promotion
 ```
 
 Capture is cheap (sub-second, no LLM). Consolidation cost depends on how many

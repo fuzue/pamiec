@@ -1,4 +1,4 @@
-# memagent
+# pamiec
 
 Persistent, queryable memory for Claude Code. Builds a knowledge graph of the
 people, projects, companies, and decisions you discuss across sessions, so
@@ -26,7 +26,7 @@ Three layers feed the recall:
   session, available within ~2 minutes. "What did the user just say about
   pricing?"
 
-A web visualization (`memagent graph`) shows the whole graph as a
+A web visualization (`pamiec graph`) shows the whole graph as a
 force-directed network — entities as colored circles, episodes as grey
 squares, edges as typed arrows.
 
@@ -36,12 +36,12 @@ squares, edges as typed arrows.
 
 ### 1. Install
 
-memagent is a Python project with a CLI and an MCP server.
+pamiec is a Python project with a CLI and an MCP server.
 
 ```bash
-cd ~/memagent
+cd ~/pamiec
 uv sync                    # or pip install -e .
-memagent init              # creates the SQLite DB and pre-loads the embedding model
+pamiec init              # creates the SQLite DB and pre-loads the embedding model
 ```
 
 The first `init` downloads `BAAI/bge-small-en-v1.5` (~130 MB) for local
@@ -51,7 +51,7 @@ extraction.
 ### 2. Register the MCP server
 
 ```bash
-claude mcp add --scope user memagent "$HOME/memagent/.venv/bin/memagent-mcp"
+claude mcp add --scope user pamiec "$HOME/pamiec/.venv/bin/pamiec-mcp"
 ```
 
 This makes `recall_context` and `remember` available as tools in every Claude
@@ -59,7 +59,7 @@ Code session. Verify:
 
 ```bash
 claude mcp list
-# memagent: /home/.../memagent-mcp  - ✓ Connected
+# pamiec: /home/.../pamiec-mcp  - ✓ Connected
 ```
 
 ### 3. Add the cron jobs
@@ -71,8 +71,8 @@ crontab -e
 Append:
 
 ```
-*/2  * * * * $HOME/memagent/.venv/bin/memagent capture              >> $HOME/.memagent/cron.log 2>&1
-*/30 * * * * $HOME/memagent/.venv/bin/memagent consolidate-session  >> $HOME/.memagent/cron.log 2>&1
+*/2  * * * * $HOME/pamiec/.venv/bin/pamiec capture              >> $HOME/.pamiec/cron.log 2>&1
+*/30 * * * * $HOME/pamiec/.venv/bin/pamiec consolidate-session  >> $HOME/.pamiec/cron.log 2>&1
 ```
 
 That's it. The system runs in the background.
@@ -83,8 +83,8 @@ That's it. The system runs in the background.
 
 | Job | Cadence | Cost | What it does |
 |-----|---------|------|--------------|
-| `memagent capture` | every 2 min | ~0.5 s, no LLM | Embeds new conversation turns and writes them to a live buffer (Tier 1). |
-| `memagent consolidate-session` | every 30 min | one Haiku call per ~8 KB of transcript per segment | Drains the live buffer, detects topic boundaries, promotes each segment to a stored episode + extracts entity facts. |
+| `pamiec capture` | every 2 min | ~0.5 s, no LLM | Embeds new conversation turns and writes them to a live buffer (Tier 1). |
+| `pamiec consolidate-session` | every 30 min | one Haiku call per ~8 KB of transcript per segment | Drains the live buffer, detects topic boundaries, promotes each segment to a stored episode + extracts entity facts. |
 
 You can also run either manually any time.
 
@@ -130,7 +130,7 @@ nothing and Claude proceeds normally.
 ### Force a recall (for inspection)
 
 ```bash
-memagent recall "grants and funding options"
+pamiec recall "grants and funding options"
 ```
 
 Returns exactly what Claude would see for that query.
@@ -138,7 +138,7 @@ Returns exactly what Claude would see for that query.
 ### Add a fact mid-session
 
 ```bash
-memagent remember "Bob from Acme will join the migration review on Friday"
+pamiec remember "Bob from Acme will join the migration review on Friday"
 ```
 
 The text is treated as a one-turn micro-conversation and processed through
@@ -148,8 +148,8 @@ things that won't appear naturally in the conversation transcript.
 ### Inspect episodes
 
 ```bash
-memagent episodes                     # list all
-memagent episodes dfcef718            # detail of one episode (id prefix)
+pamiec episodes                     # list all
+pamiec episodes dfcef718            # detail of one episode (id prefix)
 ```
 
 Detail view shows the summary, every linked entity, and every turn with
@@ -158,7 +158,7 @@ timestamps.
 ### Visualize the graph
 
 ```bash
-memagent graph
+pamiec graph
 ```
 
 Opens a browser tab with the force-directed graph. Drag nodes to rearrange,
@@ -169,7 +169,7 @@ mention. Hover an edge to see its relationship type.
 ### Compact bloated entities
 
 ```bash
-memagent compact
+pamiec compact
 ```
 
 When a single entity has accumulated too many redundant facts across many
@@ -180,7 +180,7 @@ but you can run it manually too.
 ### Status
 
 ```bash
-memagent status
+pamiec status
 ```
 
 Counts and last-run timestamps.
@@ -189,7 +189,7 @@ Counts and last-run timestamps.
 
 ## What gets remembered, and what doesn't
 
-memagent extracts:
+pamiec extracts:
 
 - Specific named **people** (Alice, Bob)
 - Named **projects, products, codebases** (ProjectX, internal-cli)
@@ -216,12 +216,12 @@ dropped before it touches the graph.
 The graph is your memory, not a source of truth. If something is wrong:
 
 ```bash
-sqlite3 ~/.memagent/memory.db
+sqlite3 ~/.pamiec/memory.db
 > UPDATE topic_nodes SET craw='...' WHERE csum LIKE 'Alice%';
 > DELETE FROM topic_nodes WHERE id='...';
 ```
 
-Run `memagent graph` again to see the updated state. Wrong facts in entities
+Run `pamiec graph` again to see the updated state. Wrong facts in entities
 have been the most common issue — usually from over-aggressive Haiku
 extraction. The confidence gate has reduced this dramatically but isn't
 perfect.
@@ -231,7 +231,7 @@ perfect.
 ## File locations
 
 ```
-~/.memagent/
+~/.pamiec/
 ├── memory.db        SQLite — all data
 ├── checkpoint.json  Per-session capture progress
 ├── d3.v7.min.js     Cached D3 for offline graph rendering
@@ -242,29 +242,29 @@ perfect.
 To wipe everything and start fresh:
 
 ```bash
-rm -rf ~/.memagent/memory.db ~/.memagent/checkpoint.json
-memagent init
+rm -rf ~/.pamiec/memory.db ~/.pamiec/checkpoint.json
+pamiec init
 ```
 
 ---
 
 ## Troubleshooting
 
-**`memagent recall` returns nothing.**
-Check whether anything is in the graph yet: `memagent status`. If counts are
-zero, run `memagent capture && memagent consolidate-session` manually to
+**`pamiec recall` returns nothing.**
+Check whether anything is in the graph yet: `pamiec status`. If counts are
+zero, run `pamiec capture && pamiec consolidate-session` manually to
 process the active session.
 
 **`recall_context` doesn't appear in Claude Code.**
-Verify: `claude mcp list`. If memagent isn't there, re-register with the
+Verify: `claude mcp list`. If pamiec isn't there, re-register with the
 command in the setup section. Restart Claude Code after registering.
 
 **Cron isn't running.**
-Check `~/.memagent/cron.log` for output from the last runs. If it's empty,
+Check `~/.pamiec/cron.log` for output from the last runs. If it's empty,
 verify `crontab -l` shows the entries with the correct binary path.
 
 **Bloated entity descriptions.**
-Run `memagent compact`. Adjust `COMPACT_THRESHOLD_LINES` in `consolidation.py`
+Run `pamiec compact`. Adjust `COMPACT_THRESHOLD_LINES` in `consolidation.py`
 if 25 lines is wrong for your usage.
 
 **Hallucinated entities (concepts treated as entities).**

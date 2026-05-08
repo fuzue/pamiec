@@ -8,7 +8,7 @@ from typing import List, Optional
 from .db import get_conn, init_db
 from .models import Event, Session, TopicNode
 
-SESSION_FILE = Path.home() / ".memagent" / "session.json"
+SESSION_FILE = Path.home() / ".pamiec" / "session.json"
 
 
 # ── Session management ────────────────────────────────────────────────────────

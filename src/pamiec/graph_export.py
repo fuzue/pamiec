@@ -96,7 +96,7 @@ def export_html(output_path: Path) -> None:
 
     graph_data = json.dumps({"nodes": nodes, "edges": edges})
 
-    d3_cache = Path.home() / ".memagent" / "d3.v7.min.js"
+    d3_cache = Path.home() / ".pamiec" / "d3.v7.min.js"
     if not d3_cache.exists():
         import urllib.request
         urllib.request.urlretrieve("https://d3js.org/d3.v7.min.js", d3_cache)
@@ -119,7 +119,7 @@ def export_html(output_path: Path) -> None:
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>memagent — knowledge graph</title>
+<title>pamiec — knowledge graph</title>
 <style>
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
   body {{ background: #0f0f13; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; overflow: hidden; }}

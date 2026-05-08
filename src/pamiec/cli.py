@@ -1,15 +1,15 @@
-"""memagent CLI.
+"""pamiec CLI.
 
 Commands:
-  memagent capture               capture new turns into live EPG (frequent cron, no LLM)
-  memagent consolidate-session   promote EPG turns to episodes + entities (every 30 min)
-  memagent remember <text>       explicitly store a fact mid-session
-  memagent recall <query>        test retrieval from the command line
-  memagent graph                 export knowledge graph as HTML and open in browser
-  memagent episodes [<id>]       list episodes or show one in detail
-  memagent compact               merge redundant facts in oversized entity descriptions
-  memagent status                show graph stats and last consolidation time
-  memagent init                  create DB and download embedding model
+  pamiec capture               capture new turns into live EPG (frequent cron, no LLM)
+  pamiec consolidate-session   promote EPG turns to episodes + entities (every 30 min)
+  pamiec remember <text>       explicitly store a fact mid-session
+  pamiec recall <query>        test retrieval from the command line
+  pamiec graph                 export knowledge graph as HTML and open in browser
+  pamiec episodes [<id>]       list episodes or show one in detail
+  pamiec compact               merge redundant facts in oversized entity descriptions
+  pamiec status                show graph stats and last consolidation time
+  pamiec init                  create DB and download embedding model
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ import json
 import sys
 from pathlib import Path
 
-CHECKPOINT_FILE = Path.home() / ".memagent" / "checkpoint.json"
+CHECKPOINT_FILE = Path.home() / ".pamiec" / "checkpoint.json"
 
 
 def main():
@@ -44,7 +44,7 @@ def main():
     elif cmd == "remember":
         text = " ".join(args[1:])
         if not text:
-            print("Usage: memagent remember <text>", file=sys.stderr)
+            print("Usage: pamiec remember <text>", file=sys.stderr)
             sys.exit(1)
         _cmd_remember(text)
     elif cmd == "recall":
@@ -100,7 +100,7 @@ def _cmd_capture():
         checkpoint.setdefault("captured", {})[file_key] = turns[-1].iso_ts
         _save_checkpoint(checkpoint)
 
-    print(f"[memagent capture] +{len(turns)} turns to EPG", file=sys.stderr)
+    print(f"[pamiec capture] +{len(turns)} turns to EPG", file=sys.stderr)
 
 
 def _cmd_consolidate_session():
@@ -115,7 +115,7 @@ def _cmd_consolidate_session():
     init_db()
     epg_rows = get_epg_turns()
     if not epg_rows:
-        print("[memagent] EPG buffer empty.", file=sys.stderr)
+        print("[pamiec] EPG buffer empty.", file=sys.stderr)
         return
 
     # Group by session file so each session promotes independently
@@ -133,7 +133,7 @@ def _cmd_consolidate_session():
         segments = split_at_boundaries(turns)
 
         print(
-            f"[memagent] {session_file.split('/')[-1]}: "
+            f"[pamiec] {session_file.split('/')[-1]}: "
             f"{len(turns)} EPG turns → {len(segments)} segment(s)",
             file=sys.stderr,
         )
@@ -156,7 +156,7 @@ def _cmd_consolidate_session():
         delete_epg_turns([r["id"] for r in rows])
 
     print(
-        f"[memagent] total: +{grand_total['new']} entities, {grand_total['touched']} touched, "
+        f"[pamiec] total: +{grand_total['new']} entities, {grand_total['touched']} touched, "
         f"{grand_total['edges']} edges, dropped {grand_total['dropped_e']} entities, "
         f"{grand_total['dropped_x']} edges (low confidence)",
         file=sys.stderr,
@@ -172,7 +172,7 @@ def _cmd_graph():
     from .graph_export import export_html
 
     init_db()
-    output = Path.home() / ".memagent" / "graph.html"
+    output = Path.home() / ".pamiec" / "graph.html"
     export_html(output)
 
     # Find a free port

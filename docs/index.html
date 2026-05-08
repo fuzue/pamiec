@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>memagent — persistent memory for Claude Code</title>
+<title>pamiec — persistent memory for Claude Code</title>
 <meta name="description" content="A hierarchical knowledge graph that remembers people, projects, and decisions across Claude Code sessions. Inspired by GAM.">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -447,7 +447,7 @@ footer .meta code { background: var(--surface); padding: 2px 6px; border-radius:
 <nav>
   <span class="brand">
     <span class="dot"></span>
-    memagent
+    pamiec
     <a class="by" href="https://fuzue.tech" target="_blank" rel="noopener" aria-label="Fuzue">
       by <img src="fuzue-logo.svg" alt="Fuzue">
     </a>
@@ -456,7 +456,7 @@ footer .meta code { background: var(--surface); padding: 2px 6px; border-radius:
     <a href="#problem">why</a>
     <a href="#architecture">architecture</a>
     <a href="#quickstart">install</a>
-    <a href="https://github.com/fuzue/memagent" target="_blank" rel="noopener">github →</a>
+    <a href="https://github.com/fuzue/pamiec" target="_blank" rel="noopener">github →</a>
   </div>
 </nav>
 
@@ -470,7 +470,7 @@ footer .meta code { background: var(--surface); padding: 2px 6px; border-radius:
       every session, automatically. <strong>No hooks to wire, no prompts to engineer.</strong>
     </p>
     <div class="hero-actions">
-      <a class="btn btn-primary" href="https://github.com/fuzue/memagent" target="_blank" rel="noopener">
+      <a class="btn btn-primary" href="https://github.com/fuzue/pamiec" target="_blank" rel="noopener">
         view on github
       </a>
       <a class="btn btn-ghost" href="#quickstart">
@@ -499,7 +499,7 @@ footer .meta code { background: var(--surface); padding: 2px 6px; border-radius:
         understanding of your work, no graph of who-does-what.
       </p>
       <p>
-        memagent fills that gap with a knowledge graph maintained in the
+        pamiec fills that gap with a knowledge graph maintained in the
         background. It captures conversation turns, extracts the entities that
         matter, and surfaces the right slice when you need it.
       </p>
@@ -511,7 +511,7 @@ footer .meta code { background: var(--surface); padding: 2px 6px; border-radius:
       <div class="session-divider">session — tuesday</div>
       <div class="session-line user fade"><span class="num">01</span>You: "what's the status of ProjectX?"</div>
       <div class="session-line fade"><span class="num">02</span>Claude: I don't have any context on ProjectX.</div>
-      <div class="session-divider" style="color: var(--accent); margin-top: 24px;">→ with memagent</div>
+      <div class="session-divider" style="color: var(--accent); margin-top: 24px;">→ with pamiec</div>
       <div class="session-line user"><span class="num">01</span>You: "what's the status of ProjectX?"</div>
       <div class="session-line"><span class="num">02</span>Claude: <span style="color: var(--accent)">[recalls Alice, Acme, ProjectX from graph]</span></div>
       <div class="session-line"><span class="num">03</span>Claude: ProjectX is owned by Alice at Acme. Last week...</div>
@@ -593,25 +593,25 @@ footer .meta code { background: var(--surface); padding: 2px 6px; border-radius:
       <span class="terminal-dot r"></span>
       <span class="terminal-dot y"></span>
       <span class="terminal-dot g"></span>
-      <span class="terminal-title">~/memagent</span>
+      <span class="terminal-title">~/pamiec</span>
     </div>
     <div class="terminal-body">
       <span class="line"><span class="comment"># clone and install</span></span>
-      <span class="line"><span class="prompt">$</span> git clone https://github.com/fuzue/memagent.git ~/memagent</span>
-      <span class="line"><span class="prompt">$</span> cd ~/memagent &amp;&amp; uv sync</span>
-      <span class="line"><span class="prompt">$</span> memagent <span class="green">init</span>     <span class="comment"># downloads embedding model (~130 MB)</span></span>
+      <span class="line"><span class="prompt">$</span> git clone https://github.com/fuzue/pamiec.git ~/pamiec</span>
+      <span class="line"><span class="prompt">$</span> cd ~/pamiec &amp;&amp; uv sync</span>
+      <span class="line"><span class="prompt">$</span> pamiec <span class="green">init</span>     <span class="comment"># downloads embedding model (~130 MB)</span></span>
       <span class="line empty"></span>
       <span class="line"><span class="comment"># register the MCP server with Claude Code</span></span>
-      <span class="line"><span class="prompt">$</span> claude mcp add --scope user memagent <span class="blue">"$HOME/memagent/.venv/bin/memagent-mcp"</span></span>
-      <span class="line"><span class="out">memagent: ✓ Connected</span></span>
+      <span class="line"><span class="prompt">$</span> claude mcp add --scope user pamiec <span class="blue">"$HOME/pamiec/.venv/bin/pamiec-mcp"</span></span>
+      <span class="line"><span class="out">pamiec: ✓ Connected</span></span>
       <span class="line empty"></span>
       <span class="line"><span class="comment"># schedule the two background jobs</span></span>
       <span class="line"><span class="prompt">$</span> crontab -e</span>
-      <span class="line"><span class="accent">*/2  * * * *</span> $HOME/memagent/.venv/bin/memagent <span class="green">capture</span></span>
-      <span class="line"><span class="accent">*/30 * * * *</span> $HOME/memagent/.venv/bin/memagent <span class="green">consolidate-session</span></span>
+      <span class="line"><span class="accent">*/2  * * * *</span> $HOME/pamiec/.venv/bin/pamiec <span class="green">capture</span></span>
+      <span class="line"><span class="accent">*/30 * * * *</span> $HOME/pamiec/.venv/bin/pamiec <span class="green">consolidate-session</span></span>
       <span class="line empty"></span>
       <span class="line"><span class="comment"># that's it. open a new claude code session and ask anything.</span></span>
-      <span class="line"><span class="prompt">$</span> memagent <span class="green">graph</span>     <span class="comment"># view the live knowledge graph</span></span>
+      <span class="line"><span class="prompt">$</span> pamiec <span class="green">graph</span>     <span class="comment"># view the live knowledge graph</span></span>
     </div>
   </div>
 </section>
@@ -641,7 +641,7 @@ footer .meta code { background: var(--surface); padding: 2px 6px; border-radius:
       <h3>Cross-session entity memory</h3>
       <p>
         GAM optimises for episodic memory <em>within</em> a long conversation.
-        memagent optimises for entity memory <em>across</em> all sessions —
+        pamiec optimises for entity memory <em>across</em> all sessions —
         what do I know about Alice / Acme / ProjectX, ever.
       </p>
       <h3 style="margin-top: 32px;">Embeddings, not LLMs, where possible</h3>
@@ -661,7 +661,7 @@ footer .meta code { background: var(--surface); padding: 2px 6px; border-radius:
         <img src="fuzue-logo.svg" alt="Fuzue">
       </a>
       <span class="sep"></span>
-      <span class="project">memagent</span>
+      <span class="project">pamiec</span>
     </div>
     <p class="meta">
       Persistent, queryable memory for Claude Code.<br>
@@ -672,9 +672,9 @@ footer .meta code { background: var(--surface); padding: 2px 6px; border-radius:
   <div>
     <h4>resources</h4>
     <ul>
-      <li><a href="https://github.com/fuzue/memagent">github repo</a></li>
-      <li><a href="https://github.com/fuzue/memagent/blob/main/README.md">readme</a></li>
-      <li><a href="https://github.com/fuzue/memagent/blob/main/ARCHITECTURE.md">architecture</a></li>
+      <li><a href="https://github.com/fuzue/pamiec">github repo</a></li>
+      <li><a href="https://github.com/fuzue/pamiec/blob/main/README.md">readme</a></li>
+      <li><a href="https://github.com/fuzue/pamiec/blob/main/ARCHITECTURE.md">architecture</a></li>
     </ul>
   </div>
   <div>

@@ -1,7 +1,7 @@
 [project]
-name = "memagent"
+name = "pamiec"
 version = "0.1.0"
-description = "Hierarchical graph memory for Claude sessions"
+description = "Hierarchical graph memory for Claude Code sessions"
 requires-python = ">=3.10"
 dependencies = [
     "mcp[cli]>=1.27.0",
@@ -11,8 +11,8 @@ dependencies = [
 ]
 
 [project.scripts]
-memagent = "memagent.cli:main"
-memagent-mcp = "memagent.mcp_server:main"
+pamiec = "pamiec.cli:main"
+pamiec-mcp = "pamiec.mcp_server:main"
 
 [tool.uv]
 package = true

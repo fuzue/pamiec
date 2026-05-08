@@ -1,9 +1,9 @@
-"""memagent MCP server.
+"""pamiec MCP server.
 
 Exposes memory tools to Claude so it can recall context autonomously.
 
 Run via:
-  memagent-mcp       (stdio, for Claude Code)
+  pamiec-mcp       (stdio, for Claude Code)
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ class CompatFastMCP(FastMCP):
         ]
 
 
-mcp = CompatFastMCP("memagent")
+mcp = CompatFastMCP("pamiec")
 
 
 @mcp.tool()
