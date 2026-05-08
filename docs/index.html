@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>memagent — persistent memory for Claude Code</title>
+<meta name="description" content="A hierarchical knowledge graph that remembers people, projects, and decisions across Claude Code sessions. Inspired by GAM.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,300;9..144,500&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg: #0a0a0d;
+  --bg-elevated: #14141a;
+  --surface: #1e1e2a;
+  --border: #2d2d3f;
+  --border-hover: #3d3d54;
+  --text: #f1f5f9;
+  --text-mute: #94a3b8;
+  --text-faint: #64748b;
+  --accent: hsl(172, 65%, 55%);
+  --accent-2: hsl(290, 65%, 55%);
+  --accent-3: hsl(43, 65%, 55%);
+  --grid-line: rgba(148, 163, 184, 0.06);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 17px;
+  line-height: 1.6;
+  overflow-x: hidden;
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 80px 80px;
+  background-position: -1px -1px;
+}
+::selection { background: var(--accent); color: var(--bg); }
+
+a { color: inherit; text-decoration: none; transition: color 120ms; }
+a:hover { color: var(--accent); }
+
+code, .mono { font-family: "JetBrains Mono", monospace; }
+
+/* ── nav ─────────────────────────────────────────────────────────── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 18px 32px;
+  z-index: 100;
+  background: rgba(10, 10, 13, 0.7);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+nav .brand { font-family: "JetBrains Mono", monospace; font-weight: 700; letter-spacing: -0.02em; }
+nav .brand::before {
+  content: ""; display: inline-block; width: 8px; height: 8px;
+  background: var(--accent); border-radius: 50%;
+  margin-right: 10px; vertical-align: middle;
+  box-shadow: 0 0 12px var(--accent);
+}
+nav .links { display: flex; gap: 28px; font-size: 14px; color: var(--text-mute); }
+
+/* ── hero ─────────────────────────────────────────────────────────── */
+.hero {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  align-items: center;
+  gap: 60px;
+  padding: 120px 64px 80px;
+  position: relative;
+}
+
+.hero-text h1 {
+  font-family: "Fraunces", serif;
+  font-size: clamp(3rem, 1rem + 6vw, 7rem);
+  font-weight: 300;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  margin-bottom: 24px;
+}
+.hero-text h1 em {
+  font-style: italic;
+  font-weight: 500;
+  background: linear-gradient(120deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent;
+}
+.hero-text .tagline {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 14px;
+  color: var(--text-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  margin-bottom: 8px;
+}
+.hero-text .lede {
+  font-size: 19px;
+  color: var(--text-mute);
+  max-width: 480px;
+  margin-top: 32px;
+  line-height: 1.65;
+}
+.hero-text .lede strong { color: var(--text); font-weight: 500; }
+
+.hero-actions { display: flex; gap: 16px; margin-top: 40px; flex-wrap: wrap; }
+.btn {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 14px 22px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  transition: all 150ms;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.btn-primary {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+.btn-primary:hover { box-shadow: 0 0 24px hsla(172, 65%, 55%, 0.4); transform: translateY(-1px); color: var(--bg); }
+.btn-ghost:hover { border-color: var(--accent); color: var(--accent); background: rgba(255,255,255,0.02); }
+
+.hero-visual {
+  position: relative;
+  height: 70vh;
+  min-height: 480px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-elevated);
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.02) inset,
+    0 60px 120px -40px rgba(0,0,0,0.6),
+    0 0 60px -20px hsla(172, 65%, 55%, 0.15);
+}
+.hero-visual::before {
+  content: "live demo";
+  position: absolute; top: 16px; left: 16px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase;
+  color: var(--text-faint);
+  z-index: 2;
+}
+.hero-visual::after {
+  content: ""; position: absolute; top: 19px; left: 70px;
+  width: 6px; height: 6px; background: var(--accent); border-radius: 50%;
+  animation: pulse 2s ease-in-out infinite;
+  z-index: 2;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.3); box-shadow: 0 0 8px var(--accent); }
+}
+#hero-graph { width: 100%; height: 100%; }
+
+/* ── sections ─────────────────────────────────────────────────────── */
+section {
+  padding: 140px 64px;
+  position: relative;
+}
+
+.section-label {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 20px;
+  display: flex; align-items: center; gap: 12px;
+}
+.section-label::before {
+  content: ""; width: 24px; height: 1px; background: var(--accent);
+}
+
+h2 {
+  font-family: "Fraunces", serif;
+  font-weight: 300;
+  font-size: clamp(2.2rem, 1rem + 3.5vw, 4.5rem);
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+  max-width: 16ch;
+}
+h2 em { font-style: italic; font-weight: 500; color: var(--accent); }
+
+/* ── problem ──────────────────────────────────────────────────────── */
+#problem {
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.problem-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+  margin-top: 80px;
+  align-items: start;
+}
+.problem-text p {
+  font-size: 19px;
+  color: var(--text-mute);
+  margin-bottom: 18px;
+  line-height: 1.7;
+}
+.problem-text p strong { color: var(--text); font-weight: 500; }
+.problem-illustration {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 32px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 14px;
+  position: relative;
+}
+.session-line { display: flex; align-items: center; gap: 12px; padding: 6px 0; color: var(--text-mute); }
+.session-line .num { color: var(--text-faint); font-size: 11px; }
+.session-line.user { color: var(--accent); }
+.session-line.fade { opacity: 0.3; }
+.session-divider {
+  border-top: 1px dashed var(--border);
+  margin: 16px 0;
+  padding-top: 8px;
+  color: var(--text-faint);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* ── architecture ────────────────────────────────────────────────── */
+.tiers {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  margin-top: 80px;
+  max-width: 1200px;
+}
+.tier {
+  display: grid;
+  grid-template-columns: 100px 1fr 2fr;
+  gap: 32px;
+  padding: 32px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-elevated);
+  transition: border-color 200ms, transform 200ms;
+  align-items: center;
+}
+.tier:hover { border-color: var(--border-hover); transform: translateX(4px); }
+.tier-num {
+  font-family: "Fraunces", serif;
+  font-size: 64px;
+  font-weight: 300;
+  font-style: italic;
+  line-height: 1;
+  color: var(--tier-color);
+  text-shadow: 0 0 30px var(--tier-color);
+}
+.tier-meta .name {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 13px;
+  color: var(--tier-color);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.tier-meta .label {
+  font-family: "Fraunces", serif;
+  font-weight: 400;
+  font-size: 26px;
+  letter-spacing: -0.01em;
+}
+.tier-detail { color: var(--text-mute); font-size: 15px; line-height: 1.65; }
+.tier-detail .keys { display: flex; gap: 18px; margin-top: 14px; flex-wrap: wrap; }
+.tier-detail .key {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-faint);
+}
+
+.tier-1 { --tier-color: hsl(43, 65%, 55%); }
+.tier-2 { --tier-color: hsl(220, 65%, 65%); }
+.tier-3 { --tier-color: hsl(172, 65%, 55%); }
+
+.tier-flow {
+  display: flex; justify-content: center;
+  margin: 8px 0;
+  font-size: 18px;
+  color: var(--text-faint);
+}
+
+/* ── quickstart ──────────────────────────────────────────────────── */
+#quickstart {
+  border-top: 1px solid var(--border);
+}
+.terminal {
+  margin-top: 60px;
+  background: #050507;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 14px;
+  line-height: 1.7;
+  box-shadow: 0 40px 80px -20px rgba(0,0,0,0.8);
+  max-width: 900px;
+}
+.terminal-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 16px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+}
+.terminal-dot { width: 11px; height: 11px; border-radius: 50%; }
+.terminal-dot.r { background: #ff5f56; }
+.terminal-dot.y { background: #ffbd2e; }
+.terminal-dot.g { background: #27c93f; }
+.terminal-title {
+  margin-left: 12px;
+  font-size: 12px;
+  color: var(--text-faint);
+  letter-spacing: 0.05em;
+}
+.terminal-body { padding: 24px 28px; color: var(--text-mute); }
+.terminal-body .prompt { color: var(--accent); user-select: none; margin-right: 8px; }
+.terminal-body .comment { color: var(--text-faint); font-style: italic; }
+.terminal-body .out { color: var(--text); }
+.terminal-body .green { color: hsl(150, 60%, 60%); }
+.terminal-body .blue { color: hsl(220, 65%, 70%); }
+.terminal-body .accent { color: var(--accent); }
+.terminal-body .line { display: block; }
+.terminal-body .line.empty { height: 12px; }
+
+/* ── compare ─────────────────────────────────────────────────────── */
+#compare { border-top: 1px solid var(--border); }
+.compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  margin-top: 60px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.compare-cell { padding: 32px; background: var(--bg-elevated); }
+.compare-cell.divider { border-left: 1px solid var(--border); }
+.compare-header {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 16px;
+}
+.compare-cell h3 {
+  font-family: "Fraunces", serif;
+  font-weight: 400;
+  font-size: 22px;
+  margin-bottom: 14px;
+}
+.compare-cell p { color: var(--text-mute); font-size: 15px; line-height: 1.7; }
+.compare-cell.divider h3 { color: var(--accent); }
+
+/* ── footer ──────────────────────────────────────────────────────── */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 60px 64px;
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 40px;
+  font-size: 14px;
+  color: var(--text-mute);
+}
+footer h4 {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 12px;
+  font-weight: 500;
+}
+footer ul { list-style: none; }
+footer li { padding: 4px 0; }
+footer .meta { color: var(--text-faint); font-size: 13px; line-height: 1.7; }
+footer .meta code { background: var(--surface); padding: 2px 6px; border-radius: 3px; font-size: 12px; }
+
+/* ── responsive ──────────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .hero { grid-template-columns: 1fr; padding: 100px 32px 60px; gap: 40px; }
+  .hero-visual { height: 50vh; min-height: 360px; }
+  section { padding: 80px 32px; }
+  .problem-grid { grid-template-columns: 1fr; gap: 40px; }
+  .tier { grid-template-columns: 80px 1fr; }
+  .tier .tier-detail { grid-column: 1 / -1; padding-top: 4px; }
+  .compare-grid { grid-template-columns: 1fr; }
+  .compare-cell.divider { border-left: 0; border-top: 1px solid var(--border); }
+  footer { grid-template-columns: 1fr; padding: 40px 32px; }
+}
+@media (max-width: 600px) {
+  nav { padding: 14px 20px; }
+  nav .links { gap: 18px; font-size: 13px; }
+  .hero { padding: 90px 20px 40px; }
+  section { padding: 64px 20px; }
+  .terminal-body { padding: 18px 20px; font-size: 12px; }
+  .tier { padding: 20px; gap: 16px; }
+  .tier-num { font-size: 48px; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="brand">memagent</span>
+  <div class="links">
+    <a href="#problem">why</a>
+    <a href="#architecture">architecture</a>
+    <a href="#quickstart">install</a>
+    <a href="https://github.com/fuzue/memagent" target="_blank" rel="noopener">github →</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="hero-text">
+    <div class="tagline">persistent memory · claude code</div>
+    <h1>Memory<br>that <em>actually</em><br>remembers.</h1>
+    <p class="lede">
+      A hierarchical knowledge graph that captures the people, projects, and
+      decisions you discuss with Claude — and brings them back into context
+      every session, automatically. <strong>No hooks to wire, no prompts to engineer.</strong>
+    </p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="https://github.com/fuzue/memagent" target="_blank" rel="noopener">
+        view on github
+      </a>
+      <a class="btn btn-ghost" href="#quickstart">
+        $ install →
+      </a>
+    </div>
+  </div>
+  <div class="hero-visual">
+    <svg id="hero-graph"></svg>
+  </div>
+</header>
+
+<section id="problem">
+  <div class="section-label">the gap</div>
+  <h2>Every session starts<br>from <em>zero</em>.</h2>
+  <div class="problem-grid">
+    <div class="problem-text">
+      <p>
+        <strong>Claude Code has no memory between sessions.</strong> Open a new
+        terminal tomorrow and the model knows nothing about Alice, the migration
+        you've been planning, or the decision you made last week.
+      </p>
+      <p>
+        You can paste context. You can write CLAUDE.md files. You can call tools
+        and hope. But none of that <em>accumulates</em> — there's no growing
+        understanding of your work, no graph of who-does-what.
+      </p>
+      <p>
+        memagent fills that gap with a knowledge graph maintained in the
+        background. It captures conversation turns, extracts the entities that
+        matter, and surfaces the right slice when you need it.
+      </p>
+    </div>
+    <div class="problem-illustration">
+      <div class="session-divider">session — monday</div>
+      <div class="session-line user"><span class="num">01</span>You: "Alice from Acme owns ProjectX"</div>
+      <div class="session-line"><span class="num">02</span>Claude: noted.</div>
+      <div class="session-divider">session — tuesday</div>
+      <div class="session-line user fade"><span class="num">01</span>You: "what's the status of ProjectX?"</div>
+      <div class="session-line fade"><span class="num">02</span>Claude: I don't have any context on ProjectX.</div>
+      <div class="session-divider" style="color: var(--accent); margin-top: 24px;">→ with memagent</div>
+      <div class="session-line user"><span class="num">01</span>You: "what's the status of ProjectX?"</div>
+      <div class="session-line"><span class="num">02</span>Claude: <span style="color: var(--accent)">[recalls Alice, Acme, ProjectX from graph]</span></div>
+      <div class="session-line"><span class="num">03</span>Claude: ProjectX is owned by Alice at Acme. Last week...</div>
+    </div>
+  </div>
+</section>
+
+<section id="architecture">
+  <div class="section-label">three tiers · gam-inspired</div>
+  <h2>Strict isolation<br>between <em>capture</em> and <em>knowledge</em>.</h2>
+  <p style="color: var(--text-mute); margin-top: 24px; max-width: 60ch; font-size: 17px;">
+    Inspired by GAM (arxiv 2604.12285). Real-time turn capture never contaminates
+    the stable entity graph. Each layer has a different lifecycle, a different
+    cost profile, and is queryable independently.
+  </p>
+
+  <div class="tiers">
+    <div class="tier tier-1">
+      <div class="tier-num">01</div>
+      <div class="tier-meta">
+        <div class="name">tier 1 — live</div>
+        <div class="label">EPG buffer</div>
+      </div>
+      <div class="tier-detail">
+        Conversation turns flow in real-time, batched by a 2-minute cron.
+        Embedded locally with fastembed — no LLM calls, no token cost.
+        Searchable while the session is still in progress.
+        <div class="keys">
+          <span class="key">~2 min cadence</span>
+          <span class="key">no LLM</span>
+          <span class="key">queryable live</span>
+        </div>
+      </div>
+    </div>
+    <div class="tier-flow">↓</div>
+    <div class="tier tier-2">
+      <div class="tier-num">02</div>
+      <div class="tier-meta">
+        <div class="name">tier 2 — archive</div>
+        <div class="label">Episodes</div>
+      </div>
+      <div class="tier-detail">
+        Every 30 minutes, the buffer is split at semantic topic boundaries
+        (centroid-based local minima detection) and each segment becomes a
+        frozen episode with a Haiku-generated summary.
+        <div class="keys">
+          <span class="key">semantic boundaries</span>
+          <span class="key">single haiku call</span>
+          <span class="key">embedded summaries</span>
+        </div>
+      </div>
+    </div>
+    <div class="tier-flow">↓</div>
+    <div class="tier tier-3">
+      <div class="tier-num">03</div>
+      <div class="tier-meta">
+        <div class="name">tier 3 — long-term</div>
+        <div class="label">Entity graph</div>
+      </div>
+      <div class="tier-detail">
+        Each episode produces typed entities with confidence scores, merged
+        into a stable graph. Cross-links connect entities back to source
+        episodes. Aggressive deduplication keeps it clean.
+        <div class="keys">
+          <span class="key">confidence-gated</span>
+          <span class="key">typed edges</span>
+          <span class="key">auto-compaction</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="quickstart">
+  <div class="section-label">install</div>
+  <h2>Two cron jobs.<br><em>Done.</em></h2>
+  <div class="terminal">
+    <div class="terminal-header">
+      <span class="terminal-dot r"></span>
+      <span class="terminal-dot y"></span>
+      <span class="terminal-dot g"></span>
+      <span class="terminal-title">~/memagent</span>
+    </div>
+    <div class="terminal-body">
+      <span class="line"><span class="comment"># clone and install</span></span>
+      <span class="line"><span class="prompt">$</span> git clone https://github.com/fuzue/memagent.git ~/memagent</span>
+      <span class="line"><span class="prompt">$</span> cd ~/memagent &amp;&amp; uv sync</span>
+      <span class="line"><span class="prompt">$</span> memagent <span class="green">init</span>     <span class="comment"># downloads embedding model (~130 MB)</span></span>
+      <span class="line empty"></span>
+      <span class="line"><span class="comment"># register the MCP server with Claude Code</span></span>
+      <span class="line"><span class="prompt">$</span> claude mcp add --scope user memagent <span class="blue">"$HOME/memagent/.venv/bin/memagent-mcp"</span></span>
+      <span class="line"><span class="out">memagent: ✓ Connected</span></span>
+      <span class="line empty"></span>
+      <span class="line"><span class="comment"># schedule the two background jobs</span></span>
+      <span class="line"><span class="prompt">$</span> crontab -e</span>
+      <span class="line"><span class="accent">*/2  * * * *</span> $HOME/memagent/.venv/bin/memagent <span class="green">capture</span></span>
+      <span class="line"><span class="accent">*/30 * * * *</span> $HOME/memagent/.venv/bin/memagent <span class="green">consolidate-session</span></span>
+      <span class="line empty"></span>
+      <span class="line"><span class="comment"># that's it. open a new claude code session and ask anything.</span></span>
+      <span class="line"><span class="prompt">$</span> memagent <span class="green">graph</span>     <span class="comment"># view the live knowledge graph</span></span>
+    </div>
+  </div>
+</section>
+
+<section id="compare">
+  <div class="section-label">compared to gam</div>
+  <h2>Where we follow.<br>Where we <em>diverge</em>.</h2>
+
+  <div class="compare-grid">
+    <div class="compare-cell">
+      <div class="compare-header">following gam</div>
+      <h3>Three-tier write isolation</h3>
+      <p>
+        Real-time capture, semantic-boundary archive, and stable entity graph
+        — the three layers GAM defines, with the same strict no-contamination
+        contract between them.
+      </p>
+      <h3 style="margin-top: 32px;">Dual-granularity nodes</h3>
+      <p>
+        Every entity has both a one-line summary (<code class="mono">csum</code>)
+        and a structured detail block (<code class="mono">craw</code>) — fast
+        retrieval up top, full context on demand.
+      </p>
+    </div>
+    <div class="compare-cell divider">
+      <div class="compare-header">our approach</div>
+      <h3>Cross-session entity memory</h3>
+      <p>
+        GAM optimises for episodic memory <em>within</em> a long conversation.
+        memagent optimises for entity memory <em>across</em> all sessions —
+        what do I know about Alice / Acme / ProjectX, ever.
+      </p>
+      <h3 style="margin-top: 32px;">Embeddings, not LLMs, where possible</h3>
+      <p>
+        Boundary detection uses sliding-window centroid similarity — no LLM
+        call. Edge confidence comes from Haiku, but never the cross-encoder
+        rerank. Cheaper to run, easier to reason about.
+      </p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div>
+    <h4>memagent</h4>
+    <p class="meta">
+      Persistent, queryable memory for Claude Code.<br>
+      MIT licensed · maintained by <a href="https://fuzue.tech">fuzue</a>.<br>
+      Inspired by <a href="https://arxiv.org/abs/2604.12285" target="_blank" rel="noopener">GAM (arxiv 2604.12285)</a>.
+    </p>
+  </div>
+  <div>
+    <h4>resources</h4>
+    <ul>
+      <li><a href="https://github.com/fuzue/memagent">github repo</a></li>
+      <li><a href="https://github.com/fuzue/memagent/blob/main/README.md">readme</a></li>
+      <li><a href="https://github.com/fuzue/memagent/blob/main/ARCHITECTURE.md">architecture</a></li>
+    </ul>
+  </div>
+  <div>
+    <h4>elsewhere</h4>
+    <ul>
+      <li><a href="https://arxiv.org/abs/2604.12285">GAM paper</a></li>
+      <li><a href="https://docs.claude.com/en/docs/claude-code">claude code docs</a></li>
+    </ul>
+  </div>
+</footer>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+// Demo graph data — example entities with relationships
+const NODES = [
+  { id: "alice",     label: "Alice",     type: "person",  shape: "circle", color: "hsl(290, 65%, 60%)" },
+  { id: "bob",       label: "Bob",       type: "person",  shape: "circle", color: "hsl(290, 65%, 60%)" },
+  { id: "acme",      label: "Acme",      type: "company", shape: "circle", color: "hsl(43, 65%, 55%)"  },
+  { id: "projectx",  label: "ProjectX",  type: "project", shape: "circle", color: "hsl(172, 65%, 55%)" },
+  { id: "projecty",  label: "ProjectY",  type: "project", shape: "circle", color: "hsl(172, 65%, 55%)" },
+  { id: "centrallab",label: "CentralLab",type: "company", shape: "circle", color: "hsl(43, 65%, 55%)"  },
+  { id: "paper",     label: "Nat. Comms",type: "paper",   shape: "circle", color: "hsl(15, 70%, 60%)"  },
+  { id: "ep1",       label: "05-07",     type: "episode", shape: "square", color: "hsl(220, 25%, 55%)" },
+  { id: "ep2",       label: "05-06",     type: "episode", shape: "square", color: "hsl(220, 25%, 55%)" },
+];
+
+const EDGES = [
+  { source: "alice",     target: "acme",       type: "FOUNDED",       color: "hsl(43, 65%, 55%)",  dashed: false },
+  { source: "alice",     target: "projectx",   type: "WORKS_ON",      color: "hsl(290, 65%, 50%)", dashed: false },
+  { source: "alice",     target: "bob",        type: "COLLABORATES",  color: "hsl(150, 60%, 50%)", dashed: false },
+  { source: "acme",      target: "projectx",   type: "OWNS",          color: "hsl(172, 65%, 50%)", dashed: false },
+  { source: "acme",      target: "projecty",   type: "OWNS",          color: "hsl(172, 65%, 50%)", dashed: false },
+  { source: "bob",       target: "centrallab", type: "MEMBER_OF",     color: "hsl(220, 50%, 60%)", dashed: false },
+  { source: "alice",     target: "paper",      type: "AUTHORED",      color: "hsl(15, 70%, 55%)",  dashed: false },
+  { source: "centrallab",target: "paper",      type: "PUBLISHED",     color: "hsl(15, 70%, 55%)",  dashed: false },
+  // cross-links from entity → episode
+  { source: "alice",     target: "ep1",        type: "MENTIONED_IN",  color: "#4a5568", dashed: true },
+  { source: "projectx",  target: "ep1",        type: "MENTIONED_IN",  color: "#4a5568", dashed: true },
+  { source: "acme",      target: "ep1",        type: "MENTIONED_IN",  color: "#4a5568", dashed: true },
+  { source: "bob",       target: "ep2",        type: "MENTIONED_IN",  color: "#4a5568", dashed: true },
+  { source: "centrallab",target: "ep2",        type: "MENTIONED_IN",  color: "#4a5568", dashed: true },
+];
+
+function renderHeroGraph() {
+  const svg = d3.select("#hero-graph");
+  const container = document.getElementById("hero-graph").parentElement;
+  const width  = container.clientWidth;
+  const height = container.clientHeight;
+
+  svg.attr("viewBox", `0 0 ${width} ${height}`);
+  const g = svg.append("g");
+
+  svg.call(d3.zoom().scaleExtent([0.4, 3]).on("zoom", e => g.attr("transform", e.transform)));
+
+  // Defs: arrow markers per edge color
+  const defs = svg.append("defs");
+  const seen = new Set();
+  EDGES.forEach((e, i) => {
+    if (seen.has(e.color)) return;
+    seen.add(e.color);
+    defs.append("marker")
+      .attr("id", "arrow-" + i)
+      .attr("viewBox", "0 -4 8 8")
+      .attr("refX", 24).attr("refY", 0)
+      .attr("markerWidth", 5).attr("markerHeight", 5)
+      .attr("orient", "auto")
+      .append("path")
+        .attr("d", "M0,-4L8,0L0,4")
+        .attr("fill", e.color)
+        .attr("opacity", 0.85);
+  });
+
+  // Map color → marker id
+  const markerMap = {};
+  let mi = 0;
+  EDGES.forEach((e, i) => {
+    if (markerMap[e.color] === undefined) markerMap[e.color] = i;
+  });
+
+  const sim = d3.forceSimulation(NODES)
+    .force("link", d3.forceLink(EDGES).id(d => d.id).distance(95).strength(0.5))
+    .force("charge", d3.forceManyBody().strength(-280))
+    .force("center", d3.forceCenter(width / 2, height / 2))
+    .force("collision", d3.forceCollide(38));
+
+  const link = g.append("g")
+    .selectAll("line")
+    .data(EDGES)
+    .join("line")
+      .attr("stroke", d => d.color)
+      .attr("stroke-opacity", 0.7)
+      .attr("stroke-width", 1.4)
+      .attr("stroke-dasharray", d => d.dashed ? "3,3" : null);
+
+  const node = g.append("g")
+    .selectAll("g")
+    .data(NODES)
+    .join("g")
+      .call(d3.drag()
+        .on("start", (e, d) => { if (!e.active) sim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+        .on("drag",  (e, d) => { d.fx = e.x; d.fy = e.y; })
+        .on("end",   (e, d) => { if (!e.active) sim.alphaTarget(0); d.fx = null; d.fy = null; }));
+
+  // Entity = circle, episode = square
+  node.filter(d => d.shape === "circle").append("circle")
+    .attr("r", 18)
+    .attr("fill", d => d.color + "22")
+    .attr("stroke", d => d.color)
+    .attr("stroke-width", 2)
+    .style("filter", d => `drop-shadow(0 0 8px ${d.color}55)`);
+
+  node.filter(d => d.shape === "square").append("rect")
+    .attr("x", -10).attr("y", -10)
+    .attr("width", 20).attr("height", 20)
+    .attr("fill", d => d.color + "33")
+    .attr("stroke", d => d.color)
+    .attr("stroke-width", 1.5);
+
+  node.append("text")
+    .attr("dy", d => d.shape === "square" ? 24 : 32)
+    .attr("text-anchor", "middle")
+    .style("font-size", d => d.shape === "square" ? "10px" : "12px")
+    .style("font-family", "JetBrains Mono, monospace")
+    .style("fill", "#cbd5e1")
+    .style("pointer-events", "none")
+    .text(d => d.label);
+
+  sim.on("tick", () => {
+    link
+      .attr("x1", d => d.source.x).attr("y1", d => d.source.y)
+      .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+    node.attr("transform", d => `translate(${d.x},${d.y})`);
+  });
+
+  // Settle then gently drift
+  setTimeout(() => sim.alphaTarget(0.02).restart(), 4000);
+}
+
+if (typeof d3 !== "undefined") renderHeroGraph();
+</script>
+
+</body>
+</html>
