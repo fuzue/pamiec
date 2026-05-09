@@ -10,6 +10,9 @@ dependencies = [
     "python-dotenv>=1.0",
 ]
 
+[project.optional-dependencies]
+benchmark = ["anthropic>=0.100.0"]
+
 [project.scripts]
 pamiec = "pamiec.cli:main"
 pamiec-mcp = "pamiec.mcp_server:main"

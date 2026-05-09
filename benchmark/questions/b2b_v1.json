@@ -1,0 +1,82 @@
+{
+  "project": "b2b_lumen_v1",
+  "questions": [
+    {
+      "id": "q01",
+      "category": "single_hop",
+      "question": "Who leads engineering on Lumen?",
+      "expected_keywords": ["Maya"],
+      "expected_negative_keywords": []
+    },
+    {
+      "id": "q02",
+      "category": "single_hop",
+      "question": "Which company owns Lumen?",
+      "expected_keywords": ["Helix"],
+      "expected_negative_keywords": []
+    },
+    {
+      "id": "q03",
+      "category": "single_hop",
+      "question": "Who owns the ingestion pipeline rewrite?",
+      "expected_keywords": ["Theo"],
+      "expected_negative_keywords": []
+    },
+    {
+      "id": "q04",
+      "category": "multi_hop",
+      "question": "What database does Lumen currently use for telemetry, and what did it replace?",
+      "expected_keywords": ["ClickHouse", "Postgres"],
+      "expected_negative_keywords": []
+    },
+    {
+      "id": "q05",
+      "category": "multi_hop",
+      "question": "Which language is the Lumen ingester being rewritten in, and who is the owner?",
+      "expected_keywords": ["Rust", "Theo"],
+      "expected_negative_keywords": []
+    },
+    {
+      "id": "q06",
+      "category": "temporal",
+      "question": "Why was Lumen's telemetry moved from Postgres to ClickHouse?",
+      "expected_keywords": ["ClickHouse", "Postgres"],
+      "expected_keywords_any_of": [["40", "second"], ["200", "ms"], ["slow"], ["query", "performance"]],
+      "expected_negative_keywords": []
+    },
+    {
+      "id": "q07",
+      "category": "temporal",
+      "question": "Why was multi-region deployment for Lumen postponed?",
+      "expected_keywords": ["Acme", "renew"],
+      "expected_negative_keywords": []
+    },
+    {
+      "id": "q08",
+      "category": "negative_probe",
+      "question": "Did the team consider Snowflake for Lumen's telemetry?",
+      "expected_keywords": [],
+      "expected_negative_keywords": ["Snowflake", "considered", "yes"],
+      "expects_no_evidence": true,
+      "ideal_answer_pattern": "no evidence | not discussed | don't have information"
+    },
+    {
+      "id": "q09",
+      "category": "negative_probe",
+      "question": "Is Carlos working on the Rust rewrite?",
+      "expected_keywords": [],
+      "expected_negative_keywords": ["Carlos"],
+      "expects_no_evidence": true,
+      "ideal_answer_pattern": "Carlos is not mentioned | no information about Carlos"
+    },
+    {
+      "id": "q10",
+      "category": "negative_probe",
+      "question": "Has Lumen integrated with Stripe for billing?",
+      "expected_keywords": [],
+      "expected_negative_keywords": ["Stripe", "integrated", "yes"],
+      "expects_no_evidence": true,
+      "ideal_answer_pattern": "no information | not discussed"
+    }
+  ]
+}

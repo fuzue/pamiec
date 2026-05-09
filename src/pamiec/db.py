@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import os
 import sqlite3
 from pathlib import Path
 
-DB_PATH = Path.home() / ".pamiec" / "memory.db"
+# Override via PAMIEC_DB env var so benchmarks / tests can use an isolated DB
+# without touching the user's real graph.
+DB_PATH = Path(os.environ.get("PAMIEC_DB", str(Path.home() / ".pamiec" / "memory.db")))
 
 
 def get_conn() -> sqlite3.Connection:

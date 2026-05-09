@@ -1,0 +1,76 @@
+{
+  "by_arm_cat": {
+    "baseline|single_hop": {
+      "n": 3,
+      "correct": 0,
+      "no_info": 3,
+      "halluc": 0,
+      "in_tok": 270,
+      "out_tok": 78,
+      "latency_ms": 3016
+    },
+    "with_pamiec|single_hop": {
+      "n": 3,
+      "correct": 3,
+      "no_info": 0,
+      "halluc": 0,
+      "in_tok": 6239,
+      "out_tok": 308,
+      "latency_ms": 6905
+    },
+    "baseline|multi_hop": {
+      "n": 2,
+      "correct": 0,
+      "no_info": 2,
+      "halluc": 0,
+      "in_tok": 203,
+      "out_tok": 62,
+      "latency_ms": 2764
+    },
+    "with_pamiec|multi_hop": {
+      "n": 2,
+      "correct": 2,
+      "no_info": 0,
+      "halluc": 0,
+      "in_tok": 4354,
+      "out_tok": 225,
+      "latency_ms": 5424
+    },
+    "baseline|temporal": {
+      "n": 2,
+      "correct": 0,
+      "no_info": 2,
+      "halluc": 0,
+      "in_tok": 196,
+      "out_tok": 61,
+      "latency_ms": 1793
+    },
+    "with_pamiec|temporal": {
+      "n": 2,
+      "correct": 2,
+      "no_info": 0,
+      "halluc": 0,
+      "in_tok": 4254,
+      "out_tok": 314,
+      "latency_ms": 9426
+    },
+    "baseline|negative_probe": {
+      "n": 3,
+      "correct": 3,
+      "no_info": 3,
+      "halluc": 0,
+      "in_tok": 284,
+      "out_tok": 86,
+      "latency_ms": 6838
+    },
+    "with_pamiec|negative_probe": {
+      "n": 3,
+      "correct": 3,
+      "no_info": 3,
+      "halluc": 0,
+      "in_tok": 6394,
+      "out_tok": 301,
+      "latency_ms": 6511
+    }
+  }
+}
