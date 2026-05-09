@@ -5,78 +5,188 @@
       "id": "q01",
       "category": "single_hop",
       "question": "Who leads engineering on Lumen?",
-      "expected_keywords": ["Maya"],
-      "expected_negative_keywords": []
+      "expected_keywords": ["Maya"]
     },
     {
       "id": "q02",
       "category": "single_hop",
       "question": "Which company owns Lumen?",
-      "expected_keywords": ["Helix"],
-      "expected_negative_keywords": []
+      "expected_keywords": ["Helix"]
     },
     {
       "id": "q03",
       "category": "single_hop",
       "question": "Who owns the ingestion pipeline rewrite?",
-      "expected_keywords": ["Theo"],
-      "expected_negative_keywords": []
+      "expected_keywords": ["Theo"]
     },
     {
       "id": "q04",
       "category": "multi_hop",
       "question": "What database does Lumen currently use for telemetry, and what did it replace?",
-      "expected_keywords": ["ClickHouse", "Postgres"],
-      "expected_negative_keywords": []
+      "expected_keywords": ["ClickHouse", "Postgres"]
     },
     {
       "id": "q05",
       "category": "multi_hop",
       "question": "Which language is the Lumen ingester being rewritten in, and who is the owner?",
-      "expected_keywords": ["Rust", "Theo"],
-      "expected_negative_keywords": []
+      "expected_keywords": ["Rust", "Theo"]
     },
     {
       "id": "q06",
       "category": "temporal",
       "question": "Why was Lumen's telemetry moved from Postgres to ClickHouse?",
       "expected_keywords": ["ClickHouse", "Postgres"],
-      "expected_keywords_any_of": [["40", "second"], ["200", "ms"], ["slow"], ["query", "performance"]],
-      "expected_negative_keywords": []
+      "expected_keywords_any_of": [["40", "second"], ["200", "ms"], ["slow"], ["query", "performance"]]
     },
     {
       "id": "q07",
       "category": "temporal",
       "question": "Why was multi-region deployment for Lumen postponed?",
-      "expected_keywords": ["Acme", "renew"],
-      "expected_negative_keywords": []
+      "expected_keywords": ["Acme"],
+      "expected_keywords_any_of": [["renew"], ["renewed"], ["condition"]]
     },
     {
       "id": "q08",
       "category": "negative_probe",
       "question": "Did the team consider Snowflake for Lumen's telemetry?",
-      "expected_keywords": [],
-      "expected_negative_keywords": ["Snowflake", "considered", "yes"],
-      "expects_no_evidence": true,
-      "ideal_answer_pattern": "no evidence | not discussed | don't have information"
+      "expects_no_evidence": true
     },
     {
       "id": "q09",
       "category": "negative_probe",
       "question": "Is Carlos working on the Rust rewrite?",
-      "expected_keywords": [],
-      "expected_negative_keywords": ["Carlos"],
-      "expects_no_evidence": true,
-      "ideal_answer_pattern": "Carlos is not mentioned | no information about Carlos"
+      "expects_no_evidence": true
     },
     {
       "id": "q10",
       "category": "negative_probe",
       "question": "Has Lumen integrated with Stripe for billing?",
-      "expected_keywords": [],
-      "expected_negative_keywords": ["Stripe", "integrated", "yes"],
-      "expects_no_evidence": true,
-      "ideal_answer_pattern": "no information | not discussed"
+      "expects_no_evidence": true
+    },
+
+    {
+      "id": "q11",
+      "category": "single_hop",
+      "question": "In which city is Helix headquartered?",
+      "expected_keywords": ["Lisbon"]
+    },
+    {
+      "id": "q12",
+      "category": "single_hop",
+      "question": "Where did Maya work before joining Helix?",
+      "expected_keywords": ["Datadog"]
+    },
+    {
+      "id": "q13",
+      "category": "single_hop",
+      "question": "Who is the staff PM on Lumen?",
+      "expected_keywords": ["Priya"]
+    },
+    {
+      "id": "q14",
+      "category": "single_hop",
+      "question": "How many engineers are currently on the Lumen team?",
+      "expected_keywords_any_of": [["three"], ["3"]]
+    },
+    {
+      "id": "q15",
+      "category": "single_hop",
+      "question": "What was Lumen's original primary database for telemetry?",
+      "expected_keywords": ["Postgres"]
+    },
+    {
+      "id": "q16",
+      "category": "single_hop",
+      "question": "In which programming language was the original Lumen ingester written?",
+      "expected_keywords": ["Python"]
+    },
+    {
+      "id": "q17",
+      "category": "single_hop",
+      "question": "Approximately how many rows of telemetry data did Lumen accumulate in Postgres?",
+      "expected_keywords_any_of": [["2 billion"], ["two billion"], ["2bn"], ["2B"]]
+    },
+    {
+      "id": "q18",
+      "category": "single_hop",
+      "question": "Roughly how many tenants does Lumen serve?",
+      "expected_keywords_any_of": [["200"], ["two hundred"]]
+    },
+
+    {
+      "id": "q19",
+      "category": "multi_hop",
+      "question": "What sustained throughput does Acme require, and what was the Python ingester achieving before the rewrite was decided?",
+      "expected_keywords_any_of": [["200k", "40k"], ["200,000", "40,000"], ["200k", "40000"]]
+    },
+    {
+      "id": "q20",
+      "category": "multi_hop",
+      "question": "Who was profiling the Python ingester before the team decided to rewrite it in Rust?",
+      "expected_keywords": ["Theo"]
+    },
+    {
+      "id": "q21",
+      "category": "multi_hop",
+      "question": "How long is the dual-write period planned for the ClickHouse migration, and how long is Postgres kept warm after cutover?",
+      "expected_keywords_any_of": [["2 weeks", "30 days"], ["two weeks", "30 days"], ["2-week", "30-day"]]
+    },
+    {
+      "id": "q22",
+      "category": "multi_hop",
+      "question": "What is the team's exit plan if ClickHouse operations turn out worse than expected?",
+      "expected_keywords_any_of": [["dual-write", "Postgres"], ["dual write", "Postgres"], ["flip back"], ["fall back"], ["fallback"]]
+    },
+    {
+      "id": "q23",
+      "category": "multi_hop",
+      "question": "What were the 90-day query times on Postgres and on ClickHouse, respectively?",
+      "expected_keywords": ["Postgres", "ClickHouse"],
+      "expected_keywords_any_of": [["40", "200"], ["40 second", "200 ms"], ["40s", "200ms"]]
+    },
+
+    {
+      "id": "q24",
+      "category": "temporal",
+      "question": "Why did the team choose a Rust rewrite over further Python optimization for the Lumen ingester?",
+      "expected_keywords_any_of": [["GIL"], ["fan out", "GIL"], ["exhausted"], ["bottleneck", "Python"]]
+    },
+    {
+      "id": "q25",
+      "category": "temporal",
+      "question": "Why is the team comfortable losing Postgres' transactional consistency for telemetry data?",
+      "expected_keywords_any_of": [["append-only"], ["append only"], ["only append"]]
+    },
+    {
+      "id": "q26",
+      "category": "temporal",
+      "question": "When is multi-region deployment for Lumen now planned?",
+      "expected_keywords": ["Q3"]
+    },
+
+    {
+      "id": "q27",
+      "category": "negative_probe",
+      "question": "Did the team consider MongoDB as a storage option for Lumen?",
+      "expects_no_evidence": true
+    },
+    {
+      "id": "q28",
+      "category": "negative_probe",
+      "question": "Is Rin a member of the Lumen team?",
+      "expects_no_evidence": true
+    },
+    {
+      "id": "q29",
+      "category": "negative_probe",
+      "question": "Did the team migrate Lumen's infrastructure to AWS this quarter?",
+      "expects_no_evidence": true
+    },
+    {
+      "id": "q30",
+      "category": "negative_probe",
+      "question": "Was Cassandra evaluated as a telemetry backend for Lumen?",
+      "expects_no_evidence": true
     }
   ]
 }

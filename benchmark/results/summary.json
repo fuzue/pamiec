@@ -1,148 +1,148 @@
 {
   "by_arm_cat": {
     "baseline|single_hop": {
-      "n": 3,
+      "n": 11,
       "correct": 0,
-      "no_info": 3,
+      "no_info": 11,
       "halluc": 0,
-      "in_tok": 270,
-      "out_tok": 91,
-      "latency_ms": 2712
+      "in_tok": 1029,
+      "out_tok": 303,
+      "latency_ms": 10651
     },
     "with_pamiec|single_hop": {
-      "n": 3,
-      "correct": 3,
+      "n": 11,
+      "correct": 11,
       "no_info": 0,
       "halluc": 0,
-      "in_tok": 6237,
-      "out_tok": 318,
-      "latency_ms": 7996
+      "in_tok": 22878,
+      "out_tok": 1076,
+      "latency_ms": 24530
     },
     "naive_baseline|single_hop": {
-      "n": 3,
+      "n": 11,
       "correct": 0,
-      "no_info": 3,
+      "no_info": 10,
       "halluc": 0,
-      "in_tok": 90,
-      "out_tok": 342,
-      "latency_ms": 4932
+      "in_tok": 369,
+      "out_tok": 1142,
+      "latency_ms": 17305
     },
     "naive_with_pamiec|single_hop": {
-      "n": 3,
-      "correct": 3,
+      "n": 11,
+      "correct": 11,
       "no_info": 0,
       "halluc": 0,
-      "in_tok": 5889,
-      "out_tok": 405,
-      "latency_ms": 7010
+      "in_tok": 21674,
+      "out_tok": 1474,
+      "latency_ms": 78475
     },
     "baseline|multi_hop": {
-      "n": 2,
+      "n": 7,
       "correct": 0,
-      "no_info": 2,
+      "no_info": 7,
       "halluc": 0,
-      "in_tok": 203,
-      "out_tok": 56,
-      "latency_ms": 1737
+      "in_tok": 727,
+      "out_tok": 222,
+      "latency_ms": 7508
     },
     "with_pamiec|multi_hop": {
-      "n": 2,
-      "correct": 2,
-      "no_info": 0,
+      "n": 7,
+      "correct": 6,
+      "no_info": 1,
       "halluc": 0,
-      "in_tok": 4342,
-      "out_tok": 219,
-      "latency_ms": 4128
+      "in_tok": 15461,
+      "out_tok": 766,
+      "latency_ms": 16216
     },
     "naive_baseline|multi_hop": {
-      "n": 2,
+      "n": 7,
       "correct": 0,
-      "no_info": 2,
+      "no_info": 7,
       "halluc": 0,
-      "in_tok": 83,
-      "out_tok": 253,
-      "latency_ms": 6889
+      "in_tok": 307,
+      "out_tok": 931,
+      "latency_ms": 14350
     },
     "naive_with_pamiec|multi_hop": {
-      "n": 2,
-      "correct": 2,
+      "n": 7,
+      "correct": 7,
       "no_info": 0,
       "halluc": 0,
-      "in_tok": 4106,
-      "out_tok": 365,
-      "latency_ms": 8269
+      "in_tok": 15340,
+      "out_tok": 1414,
+      "latency_ms": 23229
     },
     "baseline|temporal": {
-      "n": 2,
+      "n": 5,
       "correct": 0,
-      "no_info": 2,
+      "no_info": 5,
       "halluc": 0,
-      "in_tok": 196,
-      "out_tok": 64,
-      "latency_ms": 2181
+      "in_tok": 496,
+      "out_tok": 189,
+      "latency_ms": 5762
     },
     "with_pamiec|temporal": {
-      "n": 2,
-      "correct": 2,
+      "n": 5,
+      "correct": 5,
       "no_info": 0,
       "halluc": 0,
-      "in_tok": 4254,
-      "out_tok": 325,
-      "latency_ms": 5430
+      "in_tok": 10836,
+      "out_tok": 745,
+      "latency_ms": 12944
     },
     "naive_baseline|temporal": {
-      "n": 2,
+      "n": 5,
       "correct": 0,
-      "no_info": 2,
+      "no_info": 5,
       "halluc": 0,
-      "in_tok": 76,
-      "out_tok": 425,
-      "latency_ms": 6925
+      "in_tok": 196,
+      "out_tok": 1069,
+      "latency_ms": 13554
     },
     "naive_with_pamiec|temporal": {
-      "n": 2,
+      "n": 5,
       "correct": 2,
-      "no_info": 0,
+      "no_info": 3,
       "halluc": 0,
-      "in_tok": 4035,
-      "out_tok": 554,
-      "latency_ms": 8871
+      "in_tok": 10404,
+      "out_tok": 1551,
+      "latency_ms": 22934
     },
     "baseline|negative_probe": {
-      "n": 3,
-      "correct": 3,
-      "no_info": 3,
+      "n": 7,
+      "correct": 7,
+      "no_info": 7,
       "halluc": 0,
-      "in_tok": 284,
-      "out_tok": 74,
-      "latency_ms": 2866
+      "in_tok": 669,
+      "out_tok": 210,
+      "latency_ms": 6529
     },
     "with_pamiec|negative_probe": {
-      "n": 3,
-      "correct": 3,
-      "no_info": 3,
+      "n": 7,
+      "correct": 7,
+      "no_info": 7,
       "halluc": 0,
-      "in_tok": 6370,
-      "out_tok": 310,
-      "latency_ms": 8882
+      "in_tok": 14944,
+      "out_tok": 692,
+      "latency_ms": 16825
     },
     "naive_baseline|negative_probe": {
-      "n": 3,
-      "correct": 3,
-      "no_info": 3,
+      "n": 7,
+      "correct": 7,
+      "no_info": 7,
       "halluc": 0,
-      "in_tok": 104,
-      "out_tok": 349,
-      "latency_ms": 5238
+      "in_tok": 249,
+      "out_tok": 771,
+      "latency_ms": 21627
     },
     "naive_with_pamiec|negative_probe": {
-      "n": 3,
-      "correct": 3,
-      "no_info": 3,
+      "n": 7,
+      "correct": 5,
+      "no_info": 5,
       "halluc": 0,
-      "in_tok": 6074,
-      "out_tok": 578,
-      "latency_ms": 8912
+      "in_tok": 14145,
+      "out_tok": 1403,
+      "latency_ms": 25451
     }
   }
 }

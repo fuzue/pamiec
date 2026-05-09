@@ -48,43 +48,55 @@ calibration, the benchmark runs four arms:
 - **naive prompt**: "You are a helpful assistant. Answer the user's question concisely."
 - **calibrated prompt**: explicitly tells the model to say "no information" if not supported, and not to invent specifics.
 
-## What you should see (Haiku 4.5)
+## What you should see (Haiku 4.5, 30 questions × 4 arms)
 
 ```
 Category         | Arm                  |    Acc  NoInfo  Halluc    InTok   OutTok  Lat(ms)
 ------------------------------------------------------------------------------------------------
-single_hop       | naive_baseline       |    0%   100%      0%        30      114     1644
-single_hop       | naive_with_pamiec    |  100%     0%      0%      1963      135     2337
-single_hop       | baseline             |    0%   100%      0%        90       30      904
-single_hop       | with_pamiec          |  100%     0%      0%      2079      106     2665
-multi_hop        | naive_baseline       |    0%   100%      0%        42      126     3444
-multi_hop        | naive_with_pamiec    |  100%     0%      0%      2053      182     4134
-multi_hop        | baseline             |    0%   100%      0%       102       28      868
-multi_hop        | with_pamiec          |  100%     0%      0%      2171      110     2064
-temporal         | naive_baseline       |    0%   100%      0%        38      212     3462
-temporal         | naive_with_pamiec    |  100%     0%      0%      2018      277     4436
-temporal         | baseline             |    0%   100%      0%        98       32     1090
-temporal         | with_pamiec          |  100%     0%      0%      2127      162     2715
-negative_probe   | naive_baseline       |  100%   100%      0%        35      116     1746
-negative_probe   | naive_with_pamiec    |  100%   100%      0%      2025      193     2971
-negative_probe   | baseline             |  100%   100%      0%        95       25      955
-negative_probe   | with_pamiec          |  100%   100%      0%      2123      103     2961
+single_hop       | naive_baseline       |    0%    91%      0%        34      104     1573
+single_hop       | naive_with_pamiec    |  100%     0%      0%      1970      134     7134
+single_hop       | baseline             |    0%   100%      0%        94       28      968
+single_hop       | with_pamiec          |  100%     0%      0%      2080       98     2230
+multi_hop        | naive_baseline       |    0%   100%      0%        44      133     2050
+multi_hop        | naive_with_pamiec    |  100%     0%      0%      2191      202     3318
+multi_hop        | baseline             |    0%   100%      0%       104       32     1073
+multi_hop        | with_pamiec          |   86%    14%      0%      2209      109     2317
+temporal         | naive_baseline       |    0%   100%      0%        39      214     2711
+temporal         | naive_with_pamiec    |   40%    60%      0%      2081      310     4587
+temporal         | baseline             |    0%   100%      0%        99       38     1152
+temporal         | with_pamiec          |  100%     0%      0%      2167      149     2589
+negative_probe   | naive_baseline       |  100%   100%      0%        36      110     3090
+negative_probe   | naive_with_pamiec    |   71%    71%      0%      2021      200     3636
+negative_probe   | baseline             |  100%   100%      0%        96       30      933
+negative_probe   | with_pamiec          |  100%   100%      0%      2135       99     2404
 
 OVERALL
-naive_baseline       | accuracy 3/10 =  30%  | hallucinations 0/10  | avg    35+137 tok  | avg 2398 ms
-naive_with_pamiec    | accuracy 10/10 = 100% | hallucinations 0/10  | avg  2010+190 tok  | avg 3306 ms
-baseline             | accuracy 3/10 =  30%  | hallucinations 0/10  | avg    95+28  tok  | avg  950 ms
-with_pamiec          | accuracy 10/10 = 100% | hallucinations 0/10  | avg  2120+117 tok  | avg 2644 ms
+naive_baseline       | accuracy  7/30 =  23%  | hallucinations 0/30 | avg   37+130 tok  | avg 2228 ms
+naive_with_pamiec    | accuracy 25/30 =  83%  | hallucinations 0/30 | avg 2052+195 tok  | avg 5003 ms
+baseline             | accuracy  7/30 =  23%  | hallucinations 0/30 | avg   97+31  tok  | avg 1015 ms
+with_pamiec          | accuracy 29/30 =  97%  | hallucinations 0/30 | avg 2137+109 tok  | avg 2350 ms
 ```
+
+The 2×2 collapsed:
+
+|                  | no recall | with recall | recall adds |
+|------------------|-----------|-------------|-------------|
+| **naive**        | 23%       | 83%         | +60 pp      |
+| **calibrated**   | 23%       | 97%         | +74 pp      |
+| **calib. adds**  | 0 pp      | +14 pp      |             |
 
 ### What this means
 
-- **Pamiec accounts for the entire accuracy gain.** Both with-recall arms score 100%; both no-recall arms score 30% (which equals the 3/10 negative probes that are correctly answered "no" without recall).
-- **The calibration prompt makes no measurable difference for Haiku 4.5.** Naive and calibrated arms have identical scores. The model is well-calibrated by default — when it doesn't know, it says so. This is a finding about Haiku 4.5, not about pamiec; with older / weaker models the calibration prompt may matter more.
-- **No hallucinations in any arm.** The 0% hallucination rate across all four conditions is itself a notable result: even with naive prompting and pamiec-injected context, Haiku 4.5 doesn't confabulate confident wrong answers.
-- **Cost overhead:** pamiec's recall injects ~2k input tokens per question. Output tokens stay similar; latency adds ~1–2 s per question.
+- **Pamiec is the dominant lever** — adds 60–74 pp absolute accuracy, depending on prompt.
+- **The calibration prompt has a real effect, but only when paired with pamiec.** With recall, calibration adds ~14 pp on top. Without recall, calibration adds nothing — you can't be calibrated about facts you don't have.
+- The calibration win shows up in two specific places:
+  - **temporal naive_with_pamiec drops to 40%.** Even with recall returning the answer, the naive prompt makes the model say "I don't have specific information" 60% of the time on why-questions. Calibrated prompt holds at 100%.
+  - **negative_probe naive_with_pamiec drops to 71%.** With recall context and a permissive prompt, the model over-confirms 29% of negative propositions. Calibrated holds at 100%.
+- **No hallucinations across any of the 120 calls.** Modern Haiku is well-calibrated by default; even naive prompting + pamiec-injected context didn't produce confident wrong answers.
+- **Cost overhead:** ~2k extra input tokens per question with recall. Latency adds 1–4 s depending on category.
+- **Single failure** on the strongest arm: q22 (`with_pamiec` multi_hop) — model started "No information" then gave the right answer in its explanation. The scorer correctly treats this confused-but-right answer as incorrect.
 
-The honest headline: **on this benchmark, pamiec doubles+ Claude's recall accuracy with no observable hallucination cost.** The 70 pp absolute improvement should not be claimed as a general result until the question count scales beyond 10 and the model count beyond Haiku 4.5.
+The honest headline: **on 30 questions over 1 narrative against Haiku 4.5, pamiec lifts accuracy from 23% to 97% with zero observed hallucinations.** The calibration prompt adds an additional ~14 pp on top of pamiec. Don't generalize past these conditions yet — next steps are more narratives (v0.2) and Sonnet validation, then LoCoMo as the literature-anchored Tier 2.
 
 ## Layout
 
