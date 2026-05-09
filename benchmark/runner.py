@@ -39,12 +39,12 @@ MODEL = os.environ.get("BENCH_MODEL", "claude-haiku-4-5-20251001")
 
 # Two system prompts let us isolate the contribution of pamiec from the contribution
 # of prompt-engineered calibration. The 2x2 over (prompt × recall) is below.
-SYSTEM_PROMPT_CALIBRATED = """You are answering questions about a software engineering team's recent work.
+SYSTEM_PROMPT_CALIBRATED = """You answer factual questions based on whatever context is provided.
 
 Rules:
-- Answer concisely, in one or two sentences.
-- If the answer is not supported by available context, say "no information" or "not discussed". Do NOT guess.
-- Do not invent specific names, numbers, or facts that aren't grounded.
+- Answer with the SHORTEST possible response that contains the requested fact (often 1-10 words). Do not restate the question. Do not pad with explanations.
+- If the answer is not supported by available context, say "no information" or "not mentioned". Do NOT guess.
+- Do not invent specific names, dates, numbers, or facts that aren't grounded.
 """
 
 SYSTEM_PROMPT_NAIVE = """You are a helpful assistant. Answer the user's question concisely."""

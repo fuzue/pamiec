@@ -1,0 +1,5 @@
+# LoCoMo dataset is CC BY-NC 4.0 — must not redistribute via this MIT-licensed repo
+locomo10.json
+# Per-conversation question and result files reference real LoCoMo content
+questions/
+results/
