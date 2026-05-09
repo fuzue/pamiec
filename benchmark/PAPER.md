@@ -173,6 +173,98 @@ Per-category for the strong arm:
 
 The two fixes close the synthetic-vs-real gap completely. The real-graph result on `claude-haiku-4-5-20251001` after fixes matches the strongest synthetic result on `claude-sonnet-4-6`. Token cost on the strong arm rose modestly (~2279 → ~2580 input tokens per question on average) because the model now invokes recall on a few questions where it previously refused — the intended effect.
 
+### 3.5 LoCoMo Tier 2 — literature-anchored comparison
+
+To anchor pamiec's results to the published memory-architecture literature
+(GAM, Mem0, MemoryOS, A-Mem all report numbers on this), we adapted
+LoCoMo [Maharana et al. 2024]. LoCoMo provides 10 multi-session
+conversations between two fictional speakers, each spread over months,
+with 100–260 labeled QA pairs across single-hop, multi-hop, temporal,
+open-domain, and adversarial categories. F1 token-overlap against gold
+answers is the official metric.
+
+The structural fit looks excellent on paper — LoCoMo conversations are
+**already split into ~20 sessions over months**, so we don't need to
+artificially chunk anything. We feed each LoCoMo session through pamiec's
+`consolidate_turns` pipeline as a separate session, then ask the labeled
+QAs against the populated graph using the same 4-arm runner.
+
+We ran on conversation `conv-30` (105 QAs, 19 sessions, smallest in the
+dataset) on Haiku 4.5:
+
+|                  | LoCoMo F1 |
+|------------------|-----------|
+| naive_baseline   | 0.242     |
+| naive_with_pamiec| 0.142     |
+| baseline         | 0.243     |
+| with_pamiec      | 0.276     |
+
+GAM reports ~0.40 average F1 on LoCoMo with Qwen2.5-7B as the strong
+result. Pamiec at Haiku 4.5 lands at 0.276 — about 28% of the way from
+baseline to GAM's published number. **Pamiec adds only +0.03 F1 on LoCoMo,
+vs the +74 pp accuracy on synthetic.** The `naive_with_pamiec` arm is
+actively *worse* than `naive_baseline` (0.142 < 0.242): when recall
+returns sparse or off-target context, the naive model anchors on the
+closest few nodes and confabulates around them. Negative-probe accuracy
+also regresses with pamiec on this benchmark (1.0 → 0.83).
+
+The cause is architectural, not a tuning miss. From 19 LoCoMo sessions of
+life-event chat, pamiec's Haiku-confidence-gated extraction surfaced only
+**7 entity nodes** (vs 8 from 3 sessions of b2b_v1). LoCoMo questions
+ask about exactly the content the engineering-tuned `_extract` prompt
+filters out — specific dated events, hobbies, family relationships,
+brief conversational mentions that don't pass the "real entity that
+exists in the world" test.
+
+### 3.6 Retune ablation: does broadening the extraction prompt help?
+
+To test whether prompt-tuning alone could close the gap, we relaxed
+`_extract` to also recognise life-event categories: dated personal
+events, persistent hobbies/jobs/places, named possessions and works.
+Re-populating conv-30 produced **+71% more entities** (7 → 12), 29 vs 21
+typed edges, and new `event` and `work` types — exactly the categories
+the original prompt was filtering. We then re-ran both LoCoMo conv-30
+(to test if the lift translated) and b2b_v1 (sanity-check the
+engineering case did not regress).
+
+|                  | LoCoMo v1 (eng. prompt) | LoCoMo v2 (broadened) | Δ        |
+|------------------|--------------------------|------------------------|----------|
+| naive_baseline   | 0.242                    | 0.242                  | 0        |
+| naive_with_pamiec| 0.142                    | 0.119                  | −0.023   |
+| baseline         | 0.243                    | 0.236                  | −0.007   |
+| with_pamiec      | 0.276                    | **0.281**              | **+0.005** |
+
+**The 71% entity-count increase did not translate into measurable F1 lift
+on the strong arm (+0.005, rounding noise).** The new entities are
+themselves still entity-level summaries — "Finding Freedom (a contemporary
+dance piece)", "Gina's clothing store" — while LoCoMo questions need
+turn-level recall: "What date did Caroline visit the LGBTQ support
+group?" The information lives in `episode_turns` (pamiec's frozen turn
+archive), but the recall function does not currently search those
+records, only entity-graph nodes and episode summaries.
+
+On b2b_v1 the broadened prompt cost ~3 percentage points on the strong
+arm (28/30 vs 30/30 with the engineering-tuned prompt). One genuine
+extraction miss (Theo's specific "profiled the Python ingester" fact
+got filtered to focus on his ownership-of-rewrite role) and one
+synonym-handling scorer artifact ("rollback exit plan" not in the
+expected-keyword set, even though it's substantively correct).
+
+The broadened prompt is **not a Pareto improvement**. We reverted
+`consolidation.py` and report the architectural-mismatch finding stands.
+
+The actionable lesson: **pamiec's compression-via-extraction design is the
+right tradeoff for cross-session entity-level memory in technical
+workflows (where the b2b and real-graph experiments showed 50–77 pp
+accuracy lift) and the wrong tradeoff for within-conversation episodic
+recall** (where GAM-style architectures that retain every turn as a
+retrievable event node are necessary). The next productive step toward
+LoCoMo-competitive numbers is not prompt tuning but a recall-side
+extension to search `episode_turns` directly — effectively turning
+pamiec's archive layer into a GAM-equivalent for episodic queries while
+keeping the entity graph for cross-session work. Out of scope for v0;
+filed as future work below.
+
 ## 4. Findings
 
 Across 480 graded API calls in this study, three findings hold robustly:
@@ -197,10 +289,11 @@ This study does not establish that pamiec helps generically. Specifically:
 
 ## 6. Future work
 
+- **`episode_turns` direct retrieval.** The single biggest lever for closing the LoCoMo gap, identified by the v2 retune ablation: extend `recall()` to search the per-turn archive (`episode_turns`) for queries that look like episodic recall — exact dates, exact phrasings, single-event lookups. Effectively turns pamiec's archive layer into a GAM-equivalent for in-conversation queries while keeping the entity graph for cross-session work. Estimated effort: ~1 week including retrieval-quality benchmarking.
 - **More narrative templates** (sci-software lab, mobile app, infrastructure project, ML platform). Each adds ~30 questions and ~2 hours of careful authoring.
-- **LoCoMo Tier 2 adaptation.** Split each LoCoMo conversation into 3–5 chunks treated as "sessions"; run pamiec capture/consolidate between chunks; score against LoCoMo's published QA. Yields direct comparison to GAM/Mem0/etc.
+- **LoCoMo full sweep.** v0 ran one conversation (105 QAs); the full set is 10 conversations × 100–260 QAs each. Once `episode_turns` retrieval is in, sweeping all 10 gives directly comparable averages to GAM's published table.
 - **Cross-vendor extension.** Adapt the runner to OpenAI and Gemini SDKs to test whether pamiec's accuracy gains hold when the agent under test is a different model family.
-- **Recall ablations.** Now that we know retrieval is the bottleneck, isolate which retrieval components contribute most: hybrid keyword boost, one-hop graph expansion, episode search, live EPG search.
+- **Recall ablations.** Isolate which retrieval components contribute most: hybrid keyword boost, one-hop graph expansion, episode-summary search, live EPG search, the proposed `episode_turns` search.
 - **Larger graph scaling.** What happens to recall precision and token cost as the graph grows past 1000 entities? Current runs are at ~50 entities.
 
 ## 7. Conclusion
