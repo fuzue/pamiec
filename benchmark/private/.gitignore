@@ -1,0 +1,4 @@
+# Everything in private/ stays local — questions reference real entities
+# and results contain real graph content sent to the API.
+*
+!.gitignore
