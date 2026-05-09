@@ -265,6 +265,74 @@ pamiec's archive layer into a GAM-equivalent for episodic queries while
 keeping the entity graph for cross-session work. Out of scope for v0;
 filed as future work below.
 
+### 3.7 Closing the dominant GAM gap: `episode_turns` retrieval
+
+The retune ablation in §3.6 showed that prompt tuning alone could not move LoCoMo F1 materially. A diagnostic investigation isolated the root cause: pamiec's `recall()` function searched three data surfaces — `topic_nodes`, `episodes` (summaries), and `epg_turns` (live buffer) — but never queried `episode_turns`, the per-turn archive populated during consolidation. Every conversation turn pamiec captures gets written to that table, then is invisible to retrieval.
+
+For each failing LoCoMo question on the strong arm, an ad-hoc cosine search over `episode_turns` returned the gold answer in the top-2 results. The data was always there; the query path wasn't. We added a ~50-line patch:
+
+- `store.py`: `get_all_episode_turns()` and `update_episode_turn_embedding()`
+- `consolidation.py`: turns now batch-embedded at write time via fastembed instead of `embedding=None`-and-defer
+- `retrieval.py`: new search step over episode_turns with similarity threshold 0.55 and 0.75× score discount versus entity nodes
+
+|                  | v1 (no episode_turns) | v3 (episode_turns added) |
+|------------------|-----------------------|---------------------------|
+| naive_baseline   | 0.242                 | 0.242                     |
+| naive_with_pamiec| 0.142                 | 0.140                     |
+| baseline         | 0.243                 | 0.239                     |
+| with_pamiec      | 0.276                 | **0.325** (+0.049)        |
+
+Per-category on the strong arm:
+
+| Category        | v1     | v3     | Δ       |
+|-----------------|--------|--------|---------|
+| single_hop      | 0.108  | 0.175  | +0.067  |
+| multi_hop       | 0.035  | 0.246  | **+0.211** |
+| open_domain     | 0.157  | 0.178  | +0.021  |
+| negative_probe  | 0.833  | 0.750  | −0.083  |
+
+**The +0.21 multi_hop jump is the headline.** These are "When did X happen?" / "What did Y say to Z?" questions whose answer lives in a specific dated turn but no entity-level summary captures it. Going from 0.035 to 0.246 is the difference between "pamiec doesn't help on this category" and "pamiec helps materially". Token cost actually *decreased* (2480 → 2232 input tokens) because the model writes shorter answers when given specific evidence.
+
+The negative-probe regression (−0.08, two more wrong out of 24) is the cost: when episode_turns flood adjacent context the model occasionally over-confirms. Tracked but not a showstopper at this scale.
+
+### 3.8 Why was the lift only +0.05, not the predicted +0.08–0.15?
+
+A failure-mode breakdown of the 72 questions still scoring F1 < 0.5 after the v3 fix:
+
+| Failure type | Count | % |
+|--------------|-------|---|
+| **Verbose-correct** (gold answer literally in pred, F1 punishes verbosity) | **17** | **24%** |
+| Partial-correct (some gold tokens in pred) | 27 | 38% |
+| Wrong | 28 | 39% |
+
+Concrete examples of verbose-correct:
+
+- Q "When did Gina lose her DoorDash job?" — Gold `"January, 2023"` — Pred `"Based on the context, Gina lost her job at Door Dash in January 2023."` — F1 **0.27** (correct answer with 12-token wrapping)
+- Q "When did Gina open her online clothing store?" — Gold `"16 March, 2023"` — Pred `"Based on the context, Gina opened her online clothing store on March 16, 2023."` — F1 **0.38**
+- Q "When did Jon start to go to the gym?" — Gold `"March, 2023"` — Pred `"Based on the context, Jon started going to the gym last week (as of March 16, 2023)."` — F1 **0.24**
+
+If those 17 questions scored 1.0 instead of ~0.30 average, overall F1 would lift by `(17/105) × 0.7 ≈ +0.113` to land near **0.44** — above GAM's 0.40 published number on Qwen2.5-7B. The gap to GAM is therefore **mostly an answer-formatting artifact of token-overlap F1**, not a retrieval gap.
+
+The threshold-and-discount sweep that originally seemed like the right next step would have helped only ~5% of failures (the `below_threshold` and `below_top_k` buckets in the diagnostic). Brevity-prompt enforcement and/or LLM-as-judge scoring are higher-leverage fixes — both are reserved for v0.2.
+
+### 3.9 b2b_v1 fragility: extraction non-determinism, not retrieval
+
+A sanity check after the episode_turns change populated a fresh b2b_v1 graph and re-ran the 30-question benchmark. Result: 19/30 = 63% on the strong arm, vs the 100% from prior PAPER versions.
+
+A failure audit: 9/11 wrong answers concern content from session 2 of the narrative (the Postgres → ClickHouse migration) — content that **never made it into either the entity graph or `episode_turns`** because Haiku's extraction returned no new high-confidence entities for that session, triggering pamiec's `skipped_no_entities` short-circuit:
+
+```python
+# consolidation.py — current behavior
+if not entities:                        # no new entity above 0.7 confidence
+    return skipped_no_entities          # entire session dropped, INCLUDING its turns
+```
+
+Sessions whose value is *adding facts to existing entities* (e.g., "Lumen now uses ClickHouse") get dropped wholesale. The earlier 100% b2b_v1 result happened on populates where Haiku surfaced Postgres and ClickHouse as new entities; this populate didn't, and the session-skip hid the entire migration narrative from any retrieval surface.
+
+A separately-tested moderated system prompt did not recover the b2b_v1 score (still 63%), confirming that the binding constraint is the missing graph content rather than answer length. **The brevity prompt remains the right default** — it lifts LoCoMo F1 by +0.09 (v3 0.325 vs the moderated v4 0.237) and is neutral on b2b under the broken populate.
+
+The **architectural fragility identified by this audit**: pamiec's "99-100% on synthetic engineering benchmarks" was always partly an artifact of lucky Haiku extractions, not a stable claim. The fix is small — preserve a session if existing entities receive new facts above the confidence threshold, even when no brand-new entity is created — and lives entirely in `consolidation.py`. Filed as the highest-priority follow-up in §6.
+
 ## 4. Findings
 
 Across 480 graded API calls in this study, three findings hold robustly:
@@ -289,11 +357,13 @@ This study does not establish that pamiec helps generically. Specifically:
 
 ## 6. Future work
 
-- **`episode_turns` direct retrieval.** The single biggest lever for closing the LoCoMo gap, identified by the v2 retune ablation: extend `recall()` to search the per-turn archive (`episode_turns`) for queries that look like episodic recall — exact dates, exact phrasings, single-event lookups. Effectively turns pamiec's archive layer into a GAM-equivalent for in-conversation queries while keeping the entity graph for cross-session work. Estimated effort: ~1 week including retrieval-quality benchmarking.
+- **Fix the `skipped_no_entities` short-circuit in `consolidation.py`** (highest priority). Sessions that add new facts to existing entities — without creating any brand-new entity — currently get dropped wholesale, hiding their turns from `episode_turns` retrieval and from any future query path. The fix: skip only if both `len(new_entities) == 0` AND the existing-entity merge would add no new facts. This is the architectural cause of the b2b_v1 100% → 63% regression documented in §3.9 and is more important than any further retrieval tuning. Estimated effort: half a day plus a multi-trial repopulate to estimate residual extraction variance.
+- **Brevity prompt enforcement at the model level (or LLM-as-judge scoring).** §3.8 showed 24% of "failing" LoCoMo questions are verbose-correct — the gold answer is literally in the prediction but token-overlap F1 dilutes the score. Either tighten the runner's brevity rule until the verbose-correct cases all land short enough to score, or add a parallel LLM-as-judge metric and report both. Without this fix, ~+0.11 F1 of pamiec's measured shortfall vs GAM is a measurement artifact rather than a retrieval gap.
+- **Cross-encoder reranker over the top-K candidates** (the second GAM gap from `GAM_GAP_ANALYSIS.md`). `cross-encoder/ms-marco-MiniLM-L-6-v2` over the bi-encoder top-K is the standard QA upgrade. Expected to add ~0.03–0.05 F1 on top of v3.
+- **Multi-factor (β_time, β_role, β_conf) modulation** (the third GAM gap). Especially β_time for LoCoMo's temporal questions where the answer is the session date itself. Expected ~0.02–0.04 F1.
 - **More narrative templates** (sci-software lab, mobile app, infrastructure project, ML platform). Each adds ~30 questions and ~2 hours of careful authoring.
-- **LoCoMo full sweep.** v0 ran one conversation (105 QAs); the full set is 10 conversations × 100–260 QAs each. Once `episode_turns` retrieval is in, sweeping all 10 gives directly comparable averages to GAM's published table.
+- **LoCoMo full sweep.** v0 ran one conversation (105 QAs); the full set is 10 conversations × 100–260 QAs each. Once the consolidation skip-logic and brevity issues are fixed, sweeping all 10 gives directly comparable averages to GAM's published table.
 - **Cross-vendor extension.** Adapt the runner to OpenAI and Gemini SDKs to test whether pamiec's accuracy gains hold when the agent under test is a different model family.
-- **Recall ablations.** Isolate which retrieval components contribute most: hybrid keyword boost, one-hop graph expansion, episode-summary search, live EPG search, the proposed `episode_turns` search.
 - **Larger graph scaling.** What happens to recall precision and token cost as the graph grows past 1000 entities? Current runs are at ~50 entities.
 
 ## 7. Conclusion
